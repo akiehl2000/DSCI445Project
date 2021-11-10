@@ -139,3 +139,9 @@ scrape_stats <- function(team, year, master_games) {
 master_games <- scrape_stats('cle', '2021', master_games)
 ```
 
+TODO:
+- Determine scope of scraping
+- Finish constructing team map
+- Build data frames for tables of interest
+- Why won't master_games() update?
+
