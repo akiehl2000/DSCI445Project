@@ -84,6 +84,9 @@ names[['master']] <- c('Player', 'Game', 'Team', 'Cmp', 'PassAtt', 'PassYds', 'P
 scrape_stats() is the parent function used to scrape all stats of interest. Given a vector of years, it loops through all (year, team) combinations to find a set of all unique games to scrape. The tables of interest are `player_offense`, `passing_advanced`, `rushing_advanced`, and `receiving_advanced`. This function will return a large (62 columns) data frame of all unique (player, game) observations for the given period. Helper functions include scrape_games() to find unique games and scrape_tables() to extract data from selected game pages. 
 ```{r}
 scrape_stats <- function(years, names) {
+  # Begin a timer to track elapsed progress
+  ptm <- proc.time()
+  
   # Use master game codes list to track already-explored games
   master_games <- c()
   # Build temporary data frame to fill
@@ -94,7 +97,10 @@ scrape_stats <- function(years, names) {
   for (year in years) { 
     # Loop through teams
     for (team in unique(teams$team_code)) { 
-      print(paste('(', year, ', ', team, ')', sep = ''))
+      # Print progress
+      elapse <- proc.time() - ptm
+      elapse <- round(as.numeric(elapse[3]), 1)
+      print(paste('Scraping (', year, ', ', team, ');  Time Elapsed: ', elapse, ' sec', sep = ''))
       
       # Retrieve unexplored game codes for (year, team) combinations using helper functions
       game_codes <- scrape_games(team, year, master_games)
@@ -105,7 +111,13 @@ scrape_stats <- function(years, names) {
         temp <- rbind(temp, scrape_tables(game_code, names))
       }
     }
+    print('')
   }
+  
+  # Report total scraping time
+  elapse <- proc.time() - ptm
+  elapse <- round(as.numeric(elapse[3]), 1)
+  print(paste('Total Time Elapsed: ', elapse, ' sec', sep = ''))
   
   return(temp)
 }
@@ -229,14 +241,10 @@ scrape_table <- function(tbls, table, game_code, names) {
 
 Scrape tables of interest into merged master data frame and export to local .csv file. 
 ```{r}
-ptm <- proc.time()
-
 master <- scrape_stats(years, names)
 
 master %>%
   write.csv(paste('./Data/masterDF[', years[1], '-', years[length(years)], '].csv', sep = ''))
-
-proc.time() - ptm
 ```
 
 
