@@ -58,7 +58,7 @@ teams <- data.frame(team = character(), team_code = character()) %>%
 
 A vector of years of interest to scrape. This is passed into the scraping functions.
 ```{r}
-years <- as.character(2020:2020)
+years <- as.character(2018:2020)
 ```
 
 Standardized variable names for each table of interest and merged master table. These are passed into the scraping functions. 
@@ -108,6 +108,7 @@ scrape_stats <- function(years, names) {
       
       # Retrieve unexplored game codes for (year, team) combinations using helper functions
       game_codes <- scrape_games(team, year, master_games)
+      master_games <- c(master_games, game_codes)
       
       # Loop through game codes
       for (game_code in game_codes) {
@@ -254,6 +255,4 @@ master <- scrape_stats(years, names)
 master %>%
   write.csv(paste('./Data/masterDF[', years[1], '-', years[length(years)], '].csv', sep = ''))
 ```
-
-
 
