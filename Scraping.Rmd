@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rvest)
 library(XML)
+library(prob)
 ```
 
 ## Variable Setup
@@ -51,7 +52,8 @@ teams <- data.frame(team = character(), team_code = character()) %>%
   rbind(data.frame(team = 'St. Louis Rams', team_code = 'ram')) %>%
   rbind(data.frame(team = 'Tampa Bay Buccaneers', team_code = 'tam')) %>%
   rbind(data.frame(team = 'Tennessee Titans', team_code = 'oti')) %>%
-  rbind(data.frame(team = 'Washington Football Team', team_code = 'was'))
+  rbind(data.frame(team = 'Washington Football Team', team_code = 'was')) %>%
+  rbind(data.frame(team = 'Washington Redskins', team_code = 'was'))
 ```
 
 A vector of years of interest to scrape. This is passed into the scraping functions.
@@ -87,14 +89,16 @@ scrape_stats <- function(years, names) {
   # Begin a timer to track elapsed progress
   ptm <- proc.time()
   
-  # Use master game codes list to track already-explored games
-  master_games <- c()
+  
   # Build temporary data frame to fill
   temp <- data.frame(matrix(ncol = length(names[['master']]), nrow = 0))
   names(temp) <- names[['master']]
   
   # Loop through years
   for (year in years) { 
+    # Use master game codes list to track already-explored games
+    master_games <- c()
+    
     # Loop through teams
     for (team in unique(teams$team_code)) { 
       # Print progress
@@ -111,7 +115,7 @@ scrape_stats <- function(years, names) {
         temp <- rbind(temp, scrape_tables(game_code, names))
       }
     }
-    print('')
+    print(paste(year, ' complete...', sep = ''))
   }
   
   # Report total scraping time
@@ -144,9 +148,10 @@ scrape_games <- function(team, year, master_games) {
       names(df)[7] <- 'HA'
       df <- df[-1,]
       
-      # Return constructed game codes
+      # Return constructed game codes and select only unexplored
       codes <- build_game_codes(df$Date, df$HA, df$Opp, team, year)
-      codes <- codes[!(codes %in% master_games)]
+      codes <- setdiff(codes, master_games)
+
       return(codes)
     }
   }
@@ -199,10 +204,13 @@ A helper function for scrape_stats(). Given a game code, this function accesses 
 scrape_tables <- function(game_code, names) {
   # Construct URL and extract tables into list
   url <- paste('https://www.pro-football-reference.com/boxscores/', game_code, '.htm', sep = '')
-  tbls <- read_html(url) %>% 
+  tryCatch({tbls <- read_html(url) %>% 
     gsub(pattern='<!--', replacement='') %>% 
     gsub(pattern='-->', replacement='') %>%
-    readHTMLTable()
+    readHTMLTable()},
+    error = function(cond) {
+      print(url)
+    })
   
   # Extract tables of interest into local data frames and prepare for merging
   offense <- scrape_table(tbls, 'player_offense', game_code, names)
@@ -212,7 +220,7 @@ scrape_tables <- function(game_code, names) {
     select(-c('Team', 'RushAtt', 'RushYds'))
   receiving <- scrape_table(tbls, 'receiving_advanced', game_code, names) %>%
     select(-c('Team', 'Tgt', 'Rec', 'RecYds', 'RecTD'))
-  
+
   # Merge data frames together
   join <- c('Player', 'Game')
   temp <- merge(merge(merge(offense, passing, by = join, all.x = TRUE), rushing, by = join, all.x = TRUE), receiving, by = join, all.x = TRUE)
@@ -226,12 +234,12 @@ A helper function for scrape_tables() that individually scrapes, renames, tags, 
 ```{r}
 scrape_table <- function(tbls, table, game_code, names) {
   temp <- data.frame(tbls[[table]])
-  
+
   # Rename, tag, and filter data frame
   names(temp) <- names[[table]]
   temp <- temp %>%
     mutate(Game = game_code) %>%
-    filter(Player != '', Player != 'Player')
+    dplyr::filter(Player != '', Player != 'Player')
   
   return(temp)
 }
