@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rvest)
 library(XML)
+library(prob)
 ```
 
 ## Variable Setup
@@ -17,33 +18,119 @@ library(XML)
 A dictionary relating full team names to their three-letter codes. 
 ```{r}
 teams <- data.frame(team = character(), team_code = character()) %>%
-  rbind(data.frame(team = 'Kansas City Chiefs', team_code = 'kan')) %>%
-  rbind(data.frame(team = 'Minnesota Vikings', team_code = 'min')) %>%
-  rbind(data.frame(team = 'Los Angeles Chargers', team_code = 'sdg')) %>%
-  rbind(data.frame(team = 'New England Patriots', team_code = 'nwe')) %>%
-  rbind(data.frame(team = 'Cincinnati Bengals', team_code = 'cin')) %>%
+  rbind(data.frame(team = 'Arizona Cardinals', team_code = 'crd')) %>%
+  rbind(data.frame(team = 'Atlanta Falcons', team_code = 'atl')) %>%
   rbind(data.frame(team = 'Baltimore Ravens', team_code = 'rav')) %>%
+  rbind(data.frame(team = 'Buffalo Bills', team_code = 'buf')) %>%
+  rbind(data.frame(team = 'Carolina Panthers', team_code = 'car')) %>%
+  rbind(data.frame(team = 'Chicago Bears', team_code = 'chi')) %>%
+  rbind(data.frame(team = 'Cincinnati Bengals', team_code = 'cin')) %>%
+  rbind(data.frame(team = 'Cleveland Browns', team_code = 'cle')) %>%
+  rbind(data.frame(team = 'Dallas Cowboys', team_code = 'dal')) %>%
+  rbind(data.frame(team = 'Denver Broncos', team_code = 'den')) %>%
+  rbind(data.frame(team = 'Detroit Lions', team_code = 'det')) %>%
   rbind(data.frame(team = 'Green Bay Packers', team_code = 'gnb')) %>%
-  rbind(data.frame(team = 'Pittsburgh Steelers', team_code = 'pit'))
+  rbind(data.frame(team = 'Houston Texans', team_code = 'htx')) %>%
+  rbind(data.frame(team = 'Indianapolis Colts', team_code = 'clt')) %>%
+  rbind(data.frame(team = 'Jacksonville Jaguars', team_code = 'jax')) %>%
+  rbind(data.frame(team = 'Kansas City Chiefs', team_code = 'kan')) %>%
+  rbind(data.frame(team = 'Las Vegas Raiders', team_code = 'rai')) %>%
+  rbind(data.frame(team = 'Los Angeles Chargers', team_code = 'sdg')) %>%
+  rbind(data.frame(team = 'Los Angeles Rams', team_code = 'ram')) %>%
+  rbind(data.frame(team = 'Miami Dolphins', team_code = 'mia')) %>%
+  rbind(data.frame(team = 'Minnesota Vikings', team_code = 'min')) %>%
+  rbind(data.frame(team = 'New England Patriots', team_code = 'nwe')) %>%
+  rbind(data.frame(team = 'New Orleans Saints', team_code = 'nor')) %>%
+  rbind(data.frame(team = 'New York Giants', team_code = 'nyg')) %>%
+  rbind(data.frame(team = 'New York Jets', team_code = 'nyj')) %>%
+  rbind(data.frame(team = 'Oakland Raiders', team_code = 'rai')) %>%
+  rbind(data.frame(team = 'Philadelphia Eagles', team_code = 'phi')) %>%
+  rbind(data.frame(team = 'Pittsburgh Steelers', team_code = 'pit')) %>%
+  rbind(data.frame(team = 'San Diego Chargers', team_code = 'sdg')) %>%
+  rbind(data.frame(team = 'San Francisco 49ers', team_code = 'sfo')) %>%
+  rbind(data.frame(team = 'Seattle Seahawks', team_code = 'sea')) %>%
+  rbind(data.frame(team = 'St. Louis Rams', team_code = 'ram')) %>%
+  rbind(data.frame(team = 'Tampa Bay Buccaneers', team_code = 'tam')) %>%
+  rbind(data.frame(team = 'Tennessee Titans', team_code = 'oti')) %>%
+  rbind(data.frame(team = 'Washington Football Team', team_code = 'was')) %>%
+  rbind(data.frame(team = 'Washington Redskins', team_code = 'was'))
 ```
 
-Tracks game codes that have already been scraped. By looping through every team, every year, games will be duplicated in our search and this tracking mechanism allows us to avoid duplicating data. 
+A vector of years of interest to scrape. This is passed into the scraping functions.
 ```{r}
-master_games <- c()
+years <- as.character(2018:2020)
+```
+
+Standardized variable names for each table of interest and merged master table. These are passed into the scraping functions. 
+```{r}
+names <- list()
+names[['player_offense']] <- c('Player', 'Team', 'Cmp', 'PassAtt', 'PassYds', 'PassTD', 'PassInt', 'Sk', 'YdsLost', 'PassLng', 'Rate',
+                               'RushAtt', 'RushYds', 'RushTD', 'RushLng', 'Tgt', 'Rec', 'RecYds', 'RecTD', 'RecLng', 'Fmb', 'FL')
+names[['passing_advanced']] <- c('Player', 'Team', 'Cmp', 'PassAtt', 'PassYds', 'FirstDPass', 'FirstDPassPer', 'IAY', 'IAYPerPA', 'CAY', 
+                                 'CAYPerCmp', 'CAYPerPA', 'PassYAC', 'YACPerCmp', 'PassDrops', 'DropPer', 'BadThrow', 'BadPer', 'Sk', 'Bltz', 
+                                 'Hrry', 'Hits', 'Prss', 'PrssPer', 'Scrm', 'YdsPerScr')
+names[['rushing_advanced']] <- c('Player', 'Team', 'RushAtt', 'RushYds', 'FirstDRush', 'RushYBC', 'YBCPerAtt', 'RushYAC', 'YACPerAtt', 
+                                 'RushBrkTkl', 'AttPerBr')
+names[['receiving_advanced']] <- c('Player', 'Team', 'Tgt', 'Rec', 'RecYds', 'RecTD', 'FirstDRec', 'RecYBC', 'YBCPerR', 'RecYAC', 'YACPerR',
+                                   'ADOT', 'RecBrkTkl', 'RecPerBr', 'RecDrop', 'DropPerRec', 'RecInt', 'Rat')
+names[['master']] <- c('Player', 'Game', 'Team', 'Cmp', 'PassAtt', 'PassYds', 'PassTD', 'PassInt', 'Sk', 'YdsLost', 'PassLng', 'Rate',
+                       'RushAtt', 'RushYds', 'RushTD', 'RushLng', 'Tgt', 'Rec', 'RecYds', 'RecTD', 'RecLng', 'Fmb', 'FL', 'FirstDPass',
+                       'FirstDPassPer', 'IAY', 'IAYPerPA', 'CAY', 'CAYPerCmp', 'CAYPerPA', 'PassYAC', 'YACPerCmp', 'PassDrops', 'DropPer',
+                       'BadThrow', 'BadPer', 'Bltz', 'Hrry', 'Hits', 'Prss', 'PrssPer', 'Scrm', 'YdsPerScr', 'FirstDRush', 'RushYBC', 
+                       'YBCPerAtt', 'RushYAC', 'YACPerAtt', 'RushBrkTkl', 'AttPerBr', 'FirstDRec', 'RecYBC', 'YBCPerR', 'RecYAC', 'YACPerR', 
+                       'ADOT', 'RecBrkTkl', 'RecPerBr', 'RecDrop', 'DropPerRec', 'RecInt', 'Rat')
 ```
 
 ## Function Setup
 
-A simple function that translates a full team name into its respective team code. 
+scrape_stats() is the parent function used to scrape all stats of interest. Given a vector of years, it loops through all (year, team) combinations to find a set of all unique games to scrape. The tables of interest are `player_offense`, `passing_advanced`, `rushing_advanced`, and `receiving_advanced`. This function will return a large (62 columns) data frame of all unique (player, game) observations for the given period. Helper functions include scrape_games() to find unique games and scrape_tables() to extract data from selected game pages. 
 ```{r}
-decode_team <- function(team) {
-  teams$team_code[which(teams$team == team)]
+scrape_stats <- function(years, names) {
+  # Begin a timer to track elapsed progress
+  ptm <- proc.time()
+  
+  
+  # Build temporary data frame to fill
+  temp <- data.frame(matrix(ncol = length(names[['master']]), nrow = 0))
+  names(temp) <- names[['master']]
+  
+  # Loop through years
+  for (year in years) { 
+    # Use master game codes list to track already-explored games
+    master_games <- c()
+    
+    # Loop through teams
+    for (team in unique(teams$team_code)) { 
+      # Print progress
+      elapse <- proc.time() - ptm
+      elapse <- round(as.numeric(elapse[3]), 1)
+      print(paste('Scraping (', year, ', ', team, ');  Time Elapsed: ', elapse, ' sec', sep = ''))
+      
+      # Retrieve unexplored game codes for (year, team) combinations using helper functions
+      game_codes <- scrape_games(team, year, master_games)
+      master_games <- c(master_games, game_codes)
+      
+      # Loop through game codes
+      for (game_code in game_codes) {
+        # Scrape tables and return merged version with helper function 
+        temp <- rbind(temp, scrape_tables(game_code, names))
+      }
+    }
+    print(paste(year, ' complete...', sep = ''))
+  }
+  
+  # Report total scraping time
+  elapse <- proc.time() - ptm
+  elapse <- round(as.numeric(elapse[3]), 1)
+  print(paste('Total Time Elapsed: ', elapse, ' sec', sep = ''))
+  
+  return(temp)
 }
 ```
 
 A helper function for scrape_stats(). Given a team code and a year, this function returns the game codes of all regular season games played. 
 ```{r, warning=FALSE}
-scrape_games <- function(team, year) {
+scrape_games <- function(team, year, master_games) {
   # Extract game log for (team, year) combination
   url <- paste('https://www.pro-football-reference.com/teams/', team, '/', year, '/gamelog/', sep = '')
   page <- read_html(url)
@@ -62,8 +149,11 @@ scrape_games <- function(team, year) {
       names(df)[7] <- 'HA'
       df <- df[-1,]
       
-      # Return constructed game codes
-      return(build_game_codes(df$Date, df$HA, df$Opp, team, year))
+      # Return constructed game codes and select only unexplored
+      codes <- build_game_codes(df$Date, df$HA, df$Opp, team, year)
+      codes <- setdiff(codes, master_games)
+
+      return(codes)
     }
   }
 }
@@ -73,69 +163,96 @@ A helper function for scrape_games(). This function takes scraped date and oppon
 ```{r}
 build_game_codes <- function(dates, HAs, opps, team, year) {
   # Format as date and remove default year
-  dates <- dates %>%
+  codes <- dates %>%
     as.Date(format = '%B%d') %>%
     as.character()  %>%
     substr(6, 10)  %>%
     str_replace('-', '')
 
   # Loop through games
-  for (i in 1:length(dates)) {
+  for (i in 1:length(codes)) {
     # Determine whether year or year+1 should be used for the game code and append
-    if (as.numeric(substr(dates[i], 1, 2)) < 6) {
-      dates[i] <- paste(as.character(as.numeric(year) + 1), dates[i], '0', sep = '')
+    if (as.numeric(substr(codes[i], 1, 2)) < 6) {
+      codes[i] <- paste(as.character(as.numeric(year) + 1), codes[i], '0', sep = '')
     }
     else{
-      dates[i] <- paste(year, dates[i], '0', sep = '')
+      codes[i] <- paste(year, codes[i], '0', sep = '')
     }
     
     # Determine home team and append
     if (HAs[i] == '@') {
-      dates[i] <- paste(dates[i], decode_team(opps[i]), sep = '')
+      codes[i] <- paste(codes[i], decode_team(opps[i]), sep = '')
     }
     else {
-      dates[i] <- paste(dates[i], team, sep = '')
+      codes[i] <- paste(codes[i], team, sep = '')
     }
   }
   
   # Return constructed game codes
-  dates
+  return(codes)
 }
 ```
 
-Given a team code and year, this function accesses the game log and subsequent box scores of every unexplored game played that regular season. The tables of interest in each game page are `player_offense`, `passing_advanced`, `rushing_advanced`, and `receiving_advanced`. 
+A simple helper function for build_game_codes() that translates a full team name into its respective team code. 
 ```{r}
-scrape_stats <- function(team, year, master_games) {
-  # Retrieve game codes for (team, year) combinations using helper functions
-  game_codes <- scrape_games(team, year)
-  
-  # Loop through game codes
-  for (game_code in game_codes) {
-    # Check if game has already been explored
-    if (!(game_code %in% master_games)) {
-      # Add game to master game log if not already present
-      master_games <- c(master_games, game_code)
-      
-      # Construct URL and extract tables into list
-      url <- paste('https://www.pro-football-reference.com/boxscores/', game_code, '.htm', sep = '')
-      tbls <- read_html(url) %>% 
-        gsub(pattern='<!--', replacement='') %>% 
-        gsub(pattern='-->', replacement='') %>%
-        readHTMLTable()
-      
-      # Extract tables of interest into local data frames
-      player_offense <- data.frame(tbls[['player_offense']])
-      passing_advanced <- data.frame(tbls[['passing_advanced']])
-      rushing_advanced <- data.frame(tbls[['rushing_advanced']])
-      receiving_advanced <- data.frame(tbls[['receiving_advanced']])
-      
-    }
-  }
-  
-  # Return master game log
-  return(master_games)
+decode_team <- function(team) {
+  teams$team_code[which(teams$team == team)]
 }
+```
+
+A helper function for scrape_stats(). Given a game code, this function accesses the associated game page on PFR and extracts the relevant data. A merged version of the data tables is returned. 
+```{r}
+scrape_tables <- function(game_code, names) {
+  # Construct URL and extract tables into list
+  url <- paste('https://www.pro-football-reference.com/boxscores/', game_code, '.htm', sep = '')
+  tryCatch({tbls <- read_html(url) %>% 
+    gsub(pattern='<!--', replacement='') %>% 
+    gsub(pattern='-->', replacement='') %>%
+    readHTMLTable()},
+    error = function(cond) {
+      print(url)
+    })
   
-master_games <- scrape_stats('cle', '2021', master_games)
+  # Extract tables of interest into local data frames and prepare for merging
+  offense <- scrape_table(tbls, 'player_offense', game_code, names)
+  passing <- scrape_table(tbls, 'passing_advanced', game_code, names) %>%
+    select(-c('Team', 'Cmp', 'PassAtt', 'PassYds', 'Sk'))
+  rushing <- scrape_table(tbls, 'rushing_advanced', game_code, names) %>%
+    select(-c('Team', 'RushAtt', 'RushYds'))
+  receiving <- scrape_table(tbls, 'receiving_advanced', game_code, names) %>%
+    select(-c('Team', 'Tgt', 'Rec', 'RecYds', 'RecTD'))
+
+  # Merge data frames together
+  join <- c('Player', 'Game')
+  temp <- merge(merge(merge(offense, passing, by = join, all.x = TRUE), rushing, by = join, all.x = TRUE), receiving, by = join, all.x = TRUE)
+  names(temp) <- names[['master']]
+  
+  return(temp)
+}
+```
+
+A helper function for scrape_tables() that individually scrapes, renames, tags, and filters the tables of interest. 
+```{r}
+scrape_table <- function(tbls, table, game_code, names) {
+  temp <- data.frame(tbls[[table]])
+
+  # Rename, tag, and filter data frame
+  names(temp) <- names[[table]]
+  temp <- temp %>%
+    mutate(Game = game_code) %>%
+    dplyr::filter(Player != '', Player != 'Player')
+  
+  return(temp)
+}
+```
+
+# Scraping
+
+Scrape tables of interest into merged master data frame and export to local .csv file. 
+```{r}
+master <- scrape_stats(years, names)
+
+master %>%
+  write.csv(paste('./Data/masterDF[', years[1], '-', years[length(years)], '].csv', sep = ''))
 ```
 
