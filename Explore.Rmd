@@ -48,6 +48,22 @@ model <- lm(fanPts ~ PassYds + PassTD + PassInt + RushYds + RushTD + Rec + RecYd
 summary(model)
 ```
 
+364 players (38%) have at least 17 games recorded in the dataset. In theory, we could average their stats over their most recent 17 games and call that a 'typical game.' We can then run those stats through our predictive model to get a 'typical fantasy game' for each player. Those typical fantasy games can then be validated against 2021 data which has yet to be scraped and is not included in the training set. 
+```{r}
+data %>%
+  group_by(Player) %>%
+  summarize(count = n()) %>%
+  select(count) %>%
+  unlist() %>%
+  hist(breaks = 20)
+
+data %>%
+  group_by(Player) %>%
+  summarize(count = n()) %>%
+  filter(count >= 17) %>%
+  nrow()
+```
+
 Write modified .csv to local data frame
 ```{r}
 data %>% write_csv(fileName)
