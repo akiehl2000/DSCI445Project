@@ -216,7 +216,10 @@ scrape_tables <- function(game_code, names) {
   # Extract tables of interest into local data frames and prepare for merging
   offense <- scrape_table(tbls, 'player_offense', game_code, names)
   passing <- scrape_table(tbls, 'passing_advanced', game_code, names) %>%
-    select(-c('Team', 'Cmp', 'PassAtt', 'PassYds', 'Sk'))
+    select(-c('Team', 'Cmp', 'PassAtt', 'PassYds', 'Sk')) %>%
+    mutate(DropPer = as.numeric(str_replace(DropPer, '%', ''))) %>%
+    mutate(BadPer = as.numeric(str_replace(BadPer, '%', ''))) %>%
+    mutate(PrssPer = as.numeric(str_replace(PrssPer, '%', '')))
   rushing <- scrape_table(tbls, 'rushing_advanced', game_code, names) %>%
     select(-c('Team', 'RushAtt', 'RushYds'))
   receiving <- scrape_table(tbls, 'receiving_advanced', game_code, names) %>%
