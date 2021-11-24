@@ -1,0 +1,24 @@
+---
+title: "Avgcalc"
+author: "Richard Charles"
+date: "11/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r}
+head(data)
+```
+```{r}
+byplayer <- data %>% group_by(Player)
+byplayer %>% summarise(Comp = mean(Cmp), PassAt = mean(PassAtt), PassYrds = mean(PassYds), PassTuddy = mean(PassTD), skk = mean(Sk), Passinter = mean(PassInt), FFL = mean(FL), Rating = mean(Rate), Rushatmp = mean(RushAtt), Ryds = mean(RushYds), rtd = mean(RushTD), Rtuddy = mean(RecTD), recyards = mean(RecYds), drops = mean(RecDrop))
+```
+
+
+## R Markdown
+
+
