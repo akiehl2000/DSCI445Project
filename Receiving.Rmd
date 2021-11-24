@@ -1,0 +1,45 @@
+---
+title: "Receiving Models"
+author: "Adam Kiehl"
+date: "11/24/21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+Read in the data and isolate relevant fields.
+```{r}
+fileName <- './Data/masterDF[2018-2020].csv'
+rec_data <- read_csv(fileName) %>%
+  select(-'...1')
+rec_data <- rec_data[, c(1:3, 17:23, 51:62)]
+train_data <- rec_data[which(train_data$Rec > 0), -c(1:3)]
+```
+
+Model `Rec`
+```{r}
+summary(lm(Rec ~ . - RecYds - RecTD - FL, data = train_data))
+```
+
+Model `RecYds`
+```{r}
+summary(lm(RecYds ~ . - Rec - RecTD - FL, data = train_data))
+```
+
+Model `RecTD`
+```{r}
+summary(lm(RecTD ~ . - Rec - RecYds - FL, data = train_data))
+```
+
+Model `FL`
+```{r}
+summary(lm(FL ~ . - Rec - RecYds - RecTD, data = train_data))
+```
+
+Modeling Procedure:
+
+
+
