@@ -8,6 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(GGally)
+library(dlookr)
 ```
 
 Read in the data and isolate relevant fields.
@@ -16,7 +18,24 @@ fileName <- './Data/masterDF[2018-2020].csv'
 rec_data <- read_csv(fileName) %>%
   select(-'...1')
 rec_data <- rec_data[, c(1:3, 17:23, 51:62)]
-train_data <- rec_data[which(train_data$Rec > 0), -c(1:3)]
+
+train_data <- rec_data[which(rec_data$Rec > 0 & !is.na(rec_data$RecLng)), -c(1:3)]
+for (i in 1:nrow(train_data)) {
+  if (is.na(train_data$FirstDRec[i])) {
+    train_data$FirstDRec[i] <- 0
+  }
+  if (is.na(train_data$RecPerBr[i])) {
+    train_data$RecPerBr[i] <- 0
+  }
+}
+```
+
+```{r}
+diagnose(train_data)
+```
+
+```{r}
+ggpairs(train_data[,c(2:4, 7)])
 ```
 
 Model `Rec`
@@ -40,6 +59,7 @@ summary(lm(FL ~ . - Rec - RecYds - RecTD, data = train_data))
 ```
 
 Modeling Procedure:
+
 
 
 
