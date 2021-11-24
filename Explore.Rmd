@@ -60,7 +60,7 @@ data %>%
 data %>%
   group_by(Player) %>%
   summarize(count = n()) %>%
-  filter(count >= 17) %>%
+  dplyr::filter(count >= 17) %>%
   nrow()
 ```
 
