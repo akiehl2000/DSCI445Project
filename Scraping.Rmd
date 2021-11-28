@@ -58,7 +58,7 @@ teams <- data.frame(team = character(), team_code = character()) %>%
 
 A vector of years of interest to scrape. This is passed into the scraping functions.
 ```{r}
-years <- as.character(2018:2020)
+years <- as.character(2021)
 ```
 
 Standardized variable names for each table of interest and merged master table. These are passed into the scraping functions. 
@@ -79,6 +79,12 @@ names[['master']] <- c('Player', 'Game', 'Team', 'Cmp', 'PassAtt', 'PassYds', 'P
                        'BadThrow', 'BadPer', 'Bltz', 'Hrry', 'Hits', 'Prss', 'PrssPer', 'Scrm', 'YdsPerScr', 'FirstDRush', 'RushYBC', 
                        'YBCPerAtt', 'RushYAC', 'YACPerAtt', 'RushBrkTkl', 'AttPerBr', 'FirstDRec', 'RecYBC', 'YBCPerR', 'RecYAC', 'YACPerR', 
                        'ADOT', 'RecBrkTkl', 'RecPerBr', 'RecDrop', 'DropPerRec', 'RecInt', 'Rat')
+```
+
+A vector of weights for the calculation of fantasy points.
+```{r}
+weights <- data.frame(stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushTD', 'Rec', 'RecYds', 'RecTD', 'FL'),
+                      pts = c(.04, 4, -1, .1, 6, 1, .1, 6, -2))
 ```
 
 ## Function Setup
@@ -110,6 +116,10 @@ scrape_stats <- function(years, names) {
       game_codes <- scrape_games(team, year, master_games)
       master_games <- c(master_games, game_codes)
       
+      if (year == '2021') {
+        # Identify only games in 2021 that have been played
+        game_codes <- game_codes[as.numeric(substr(game_codes, 1, 8)) <= as.numeric(str_replace_all(Sys.Date(), '-', '')) - 4]
+      }
       # Loop through game codes
       for (game_code in game_codes) {
         # Scrape tables and return merged version with helper function 
@@ -253,7 +263,10 @@ scrape_table <- function(tbls, table, game_code, names) {
 
 Scrape tables of interest into merged master data frame and export to local .csv file. 
 ```{r}
-master <- scrape_stats(years, names)
+master <- scrape_stats(years, names) %>%
+  mutate_each(funs(as.numeric), weights$stat)
+master <- master %>%
+  mutate(fanPts = as.vector(as.matrix(master[, weights$stat]) %*% weights$pts))
 
 master %>%
   write.csv(paste('./Data/masterDF[', years[1], '-', years[length(years)], '].csv', sep = ''))
