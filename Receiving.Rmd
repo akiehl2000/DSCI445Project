@@ -13,7 +13,7 @@ library(dlookr)
 ```
 
 Read in the data and isolate relevant fields.
-```{r}
+```{r, message=FALSE}
 fileName <- './Data/masterDF[2018-2020].csv'
 rec_data <- read_csv(fileName) %>%
   select(-'...1')
@@ -29,20 +29,20 @@ for (i in 1:nrow(train_data)) {
   }
 }
 
-fileName <- './Data/masterDF[2021-2021].csv'
-rec_data2021 <- read_csv(fileName) %>%
-  select(-'...1')
-rec_data2021 <- rec_data2021[, c(1:3, 17:23, 51:62)]
-
-test_data <- rec_data2021[which(rec_data2021$Rec > 0 & !is.na(rec_data2021$RecLng)), -c(1:3)]
-for (i in 1:nrow(test_data)) {
-  if (is.na(test_data$FirstDRec[i])) {
-    test_data$FirstDRec[i] <- 0
-  }
-  if (is.na(test_data$RecPerBr[i])) {
-    test_data$RecPerBr[i] <- 0
-  }
-}
+# fileName <- './Data/masterDF[2021-2021].csv'
+# rec_data2021 <- read_csv(fileName) %>%
+#   select(-'...1')
+# rec_data2021 <- rec_data2021[, c(1:3, 17:23, 51:62)]
+# 
+# test_data <- rec_data2021[which(rec_data2021$Rec > 0 & !is.na(rec_data2021$RecLng)), -c(1:3)]
+# for (i in 1:nrow(test_data)) {
+#   if (is.na(test_data$FirstDRec[i])) {
+#     test_data$FirstDRec[i] <- 0
+#   }
+#   if (is.na(test_data$RecPerBr[i])) {
+#     test_data$RecPerBr[i] <- 0
+#   }
+# }
 ```
 
 ```{r}
@@ -74,6 +74,18 @@ summary(lm(FL ~ . - Rec - RecYds - RecTD, data = train_data))
 ```
 
 Modeling Procedure:
+
+- Backward/forward selection
+- LASSO/Ridge
+- Regression (are assumptions met? how can we improve this?)
+- Non-linear regression (Is this necessary?)
+- PCA (many of our predictors are likely correllated)
+- Tree based models
+- All fit using k fold cross validation
+- Predict on typical game averages
+- Test against 2021 data
+
+
 
 
 
