@@ -20,17 +20,6 @@ data <- read_csv(fileName) %>%
 diagnose(data)
 ```
 
-Assign point weights to seleced basic fantasy variables
-```{r}
-weights <- data.frame(stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushTD', 'Rec', 'RecYds', 'RecTD', 'FL'),
-                      pts = c(.04, 4, -1, .1, 6, 1, .1, 6, -2))
-```
-
-Add field for single-game fantasy points based on weights
-```{r}
-data <- data %>% mutate(fanPts = as.vector(as.matrix(data[, weights$stat]) %*% weights$pts))
-```
-
 Fit a naive tree to predict `fanPts`
 ```{r}
 model <- tree(fanPts ~ ., data = data[, c(4:23, 63)])
@@ -64,8 +53,4 @@ data %>%
   nrow()
 ```
 
-Write modified .csv to local data frame
-```{r}
-data %>% write_csv(fileName)
-```
 
