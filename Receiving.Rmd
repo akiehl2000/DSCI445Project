@@ -19,6 +19,13 @@ library(glmnet)
 library(tree)
 ```
 
+For reproducibility:
+```{r}
+set.seed(445)
+```
+
+# Setup
+
 Read in the data and isolate relevant fields.
 ```{r, message=FALSE}
 fileName <- './Data/masterDF[2018-2020].csv'
@@ -27,7 +34,11 @@ rec_data <- read_csv(fileName) %>%
 rec_data <- rec_data[, c(1:3, 17:23, 51:62)]
 
 train_data <- rec_data[which(rec_data$Rec > 0 & !is.na(rec_data$RecLng)), -c(1:3)]
-for (i in 1:nrow(train_data)) {
+N <- nrow(train_data)
+K <- 10
+folds <- sample(1:K, N, replace = TRUE)
+
+for (i in 1:N) {
   if (is.na(train_data$FirstDRec[i])) {
     train_data$FirstDRec[i] <- 0
   }
@@ -56,11 +67,364 @@ for (i in 1:nrow(train_data)) {
 diagnose(train_data)
 ```
 
+# Exploratory 
+
 ```{r}
 ggpairs(train_data[,c(2:4, 7)])
 ```
 
-Exploratory PCA
+# Multiple Linear Regression
+
+Multiple linear regression models with 10-fold cross-validation MSE reported. 
+```{r}
+mlr_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
+mlr_mse <- data.frame(k = 1:K, mse1 = rep(NA, K), mse2 = rep(NA, K), mse3 = rep(NA, K), mse4 = rep(NA, K))
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  model <- lm(Rec ~ . - RecYds - RecTD - FL, data = trn)
+  pred <- predict(model, vld)
+  mlr_mse$mse1[which(mlr_mse$k == k)] <- mean((vld$Rec - pred)^2)
+  
+  model <- lm(RecYds ~ . - Rec - RecTD - FL, data = trn)
+  pred <- predict(model, vld)
+  mlr_mse$mse2[which(mlr_mse$k == k)] <- mean((vld$RecYds - pred)^2)
+  
+  model <- lm(RecTD ~ . - Rec - RecYds - FL, data = trn)
+  pred <- predict(model, vld)
+  mlr_mse$mse3[which(mlr_mse$k == k)] <- mean((vld$RecTD - pred)^2)
+  
+  model <- lm(FL ~ . - Rec - RecYds - RecTD, data = trn)
+  pred <- predict(model, vld)
+  mlr_mse$mse4[which(mlr_mse$k == k)] <- mean((vld$FL - pred)^2)
+}
+
+mlr_results$MSE[which(mlr_results$Model == 'Rec')] <- round(mean(mlr_mse$mse1), 3)
+mlr_results$MSE[which(mlr_results$Model == 'RecYds')] <- round(mean(mlr_mse$mse2), 3)
+mlr_results$MSE[which(mlr_results$Model == 'RecTD')] <- round(mean(mlr_mse$mse3), 3)
+mlr_results$MSE[which(mlr_results$Model == 'FL')] <- round(mean(mlr_mse$mse4), 3)
+
+mlr_results
+```
+
+# Best Subset Selection
+
+Best subset selection performed with `Rec` as response. 
+```{r}
+best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL, data = train_data, nvmax = 15)
+best_subset_sum <- summary(best_subset)
+
+opt <- 8
+
+par(mfrow=c(3,1))
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$cp)) + 
+  geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
+  labs(title='Mallows\' Cp',x='Predictors',y='Value')
+
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$bic)) + 
+  geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
+  labs(title='BIC', x='Predictors', y='Value')
+
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
+  geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
+  labs(title='Adjusted R^2', x='Predictors', y='Value')
+
+coefficients(best_subset, id = as.character(opt))
+
+best_subset_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  best_subset <- lm(Rec ~ Tgt + RecLng + RecYBC + RecYAC + YACPerR + ADOT + RecDrop + Rat, trn)
+  pred <- predict(best_subset, vld)
+  best_subset_mse[k] <- mean((vld$Rec - pred)^2)
+}
+
+recMSE <- round(mean(best_subset_mse), 3)
+```
+
+Best subset selection performed with `RecYds` as response. 
+```{r}
+best_subset <- regsubsets(RecYds ~ . - Rec - RecTD - FL, data = train_data, nvmax = 15)
+best_subset_sum <- summary(best_subset)
+
+opt <- 2
+
+par(mfrow=c(3,1))
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$cp)) + 
+  geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
+  labs(title='Mallows\' Cp',x='Predictors',y='Value')
+
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$bic)) + 
+  geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
+  labs(title='BIC', x='Predictors', y='Value')
+
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
+  geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
+  labs(title='Adjusted R^2', x='Predictors', y='Value')
+
+coefficients(best_subset, id = as.character(opt))
+
+best_subset_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  best_subset <- lm(RecYds ~ RecYBC + RecYAC, trn)
+  pred <- predict(best_subset, vld)
+  best_subset_mse[k] <- mean((vld$RecYds - pred)^2)
+}
+
+recYdsMSE <- round(mean(best_subset_mse), 3)
+```
+
+Best subset selection performed with `RecTD` as response. 
+```{r}
+best_subset <- regsubsets(RecTD ~ . - Rec - RecYds - FL, data = train_data, nvmax = 15)
+best_subset_sum <- summary(best_subset)
+
+opt <- 9
+
+par(mfrow=c(3,1))
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$cp)) + 
+  geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
+  labs(title='Mallows\' Cp',x='Predictors',y='Value')
+
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$bic)) + 
+  geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
+  labs(title='BIC', x='Predictors', y='Value')
+
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
+  geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
+  labs(title='Adjusted R^2', x='Predictors', y='Value')
+
+coefficients(best_subset, id = as.character(opt))
+
+best_subset_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  best_subset <- lm(RecTD ~ Tgt + RecLng + RecYBC + YBCPerR + RecYAC + ADOT + RecInt + Rat, trn)
+  pred <- predict(best_subset, vld)
+  best_subset_mse[k] <- mean((vld$RecTD - pred)^2)
+}
+
+recTDMSE <- round(mean(best_subset_mse), 3)
+```
+
+Best subset selection performed with `FL` as response. 
+```{r}
+best_subset <- regsubsets(FL ~ . - Rec - RecYds - RecTD, data = train_data, nvmax = 15)
+best_subset_sum <- summary(best_subset)
+
+opt <- 6
+
+par(mfrow=c(3,1))
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$cp)) + 
+  geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
+  labs(title='Mallows\' Cp',x='Predictors',y='Value')
+
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$bic)) + 
+  geom_point(aes(opt - 5, best_subset_sum$bic[opt - 5]), color = 'red') + 
+  labs(title='BIC', x='Predictors', y='Value')
+
+ggplot() + 
+  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
+  geom_point(aes(opt + 2, best_subset_sum$adjr2[opt + 2]), color = 'red') + 
+  labs(title='Adjusted R^2', x='Predictors', y='Value')
+
+coefficients(best_subset, id = as.character(opt))
+
+best_subset_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  best_subset <- lm(FL ~ Tgt + Fmb + FirstDRec + RecYBC + ADOT + RecDrop, trn)
+  pred <- predict(best_subset, vld)
+  best_subset_mse[k] <- mean((vld$FL - pred)^2)
+}
+
+FLMSE <- round(mean(best_subset_mse), 3)
+```
+
+10-fold cross validation best subset selection MSEs:
+```{r}
+best_subset_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
+
+best_subset_results$MSE[which(best_subset_results$Model == 'Rec')] <- recMSE
+best_subset_results$MSE[which(best_subset_results$Model == 'RecYds')] <- recYdsMSE
+best_subset_results$MSE[which(best_subset_results$Model == 'RecTD')] <- recTDMSE
+best_subset_results$MSE[which(best_subset_results$Model == 'FL')] <- FLMSE
+
+best_subset_results
+```
+
+
+# LASSO Regression
+
+Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0.002$ and no predictors were excluded. However, with negligible penalty to MSE, $\lambda\approx0.12$ can be used and a much simpler model can be obtained. This selected model uses eight predictors and has $MSE=0.53$. 
+```{r}
+x <- model.matrix(Rec ~ . - RecYds - RecTD - FL, train_data)
+y <- train_data$Rec
+
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+
+plot(lasso_model)
+
+lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+coef(lasso_model)
+
+lasso_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  x <- model.matrix(Rec ~ . - RecYds - RecTD - FL, trn)
+  y <- trn$Rec
+  
+  lasso_model <- glmnet(x, y, lambda = exp(-2))
+  
+  pred_x <- model.matrix(Rec ~ . - RecYds - RecTD - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+  
+  lasso_mse[k] <- mean((vld$Rec - pred)^2)
+}
+
+recMSE <- round(mean(lasso_mse), 3)
+```
+
+Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0.74$ and no predictors were excluded. However, with negligible penalty to MSE, $\lambda\approx2.72$ can be used and a much simpler model can be obtained. This selected model uses four predictors and has $MSE=12.9$. 
+```{r}
+x <- model.matrix(RecYds ~ . - Rec - RecTD - FL, train_data)
+y <- train_data$RecYds
+
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+
+plot(lasso_model)
+
+lasso_model <- glmnet(x, y, lambda = exp(1)); lasso_model
+coef(lasso_model)
+
+lasso_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  x <- model.matrix(RecYds ~ . - Rec - RecTD - FL, trn)
+  y <- trn$RecYds
+  
+  lasso_model <- glmnet(x, y, lambda = exp(1))
+  
+  pred_x <- model.matrix(RecYds ~ . - Rec - RecTD - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+  
+  lasso_mse[k] <- mean((vld$RecYds - pred)^2)
+}
+
+recYdsMSE <- round(mean(lasso_mse), 3)
+```
+
+Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0$ and no predictors we excluded. However, with negligible penalty to MSE, $\lambda\approx0.007$ can be used and a much simpler model can be obtained. This selected model uses twelve predictors and has $MSE=0.11$. 
+```{r}
+x <- model.matrix(RecTD ~ . - Rec - RecYds - FL, train_data)
+y <- train_data$RecTD
+
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+
+plot(lasso_model)
+
+lambda <- exp
+lasso_model <- glmnet(x, y, lambda = exp(-5)); lasso_model
+coef(lasso_model)
+
+lasso_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  x <- model.matrix(RecTD ~ . - Rec - RecYds - FL, trn)
+  y <- trn$RecTD
+  
+  lasso_model <- glmnet(x, y, lambda = exp(-5))
+  
+  pred_x <- model.matrix(RecTD ~ . - Rec - RecYds - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+  
+  lasso_mse[k] <- mean((vld$RecTD - pred)^2)
+}
+
+recTDMSE <- round(mean(lasso_mse), 3)
+```
+
+Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0$ and no predictors we excluded. However, with negligible penalty to MSE, $\lambda\approx0.05$ can be used and a much simpler model can be obtained. This selected model uses one predictor and has $MSE=0.02$. 
+```{r}
+x <- model.matrix(FL ~ . - Rec - RecYds - RecTD, train_data)
+y <- train_data$FL
+
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+
+plot(lasso_model)
+
+lasso_model <- glmnet(x, y, lambda = exp(-3)); lasso_model
+coef(lasso_model)
+
+lasso_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  x <- model.matrix(FL ~ . - Rec - RecYds - RecTD, trn)
+  y <- trn$FL
+  
+  lasso_model <- glmnet(x, y, lambda = exp(-3))
+  
+  pred_x <- model.matrix(FL ~ . - Rec - RecYds - RecTD, vld)
+  pred <- predict(lasso_model, pred_x)
+  
+  lasso_mse[k] <- mean((vld$FL - pred)^2)
+}
+
+FLMSE <- round(mean(lasso_mse), 3)
+```
+
+10-fold cross validation LASSO regression MSEs:
+```{r}
+lasso_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
+
+lasso_results$MSE[which(lasso_results$Model == 'Rec')] <- recMSE
+lasso_results$MSE[which(lasso_results$Model == 'RecYds')] <- recYdsMSE
+lasso_results$MSE[which(lasso_results$Model == 'RecTD')] <- recTDMSE
+lasso_results$MSE[which(lasso_results$Model == 'FL')] <- FLMSE
+
+lasso_results
+```
+
+# Principal Componenets Analysis
+
 ```{r}
 pca_model <- prcomp(train_data[, -c(2:4, 7)], center = TRUE, scale = TRUE)
 summary(pca_model)
@@ -69,224 +433,159 @@ summary(pca_model)
 ```{r}
 fviz_eig(pca_model)
 ```
+
 ```{r}
 pca_scores <- data.frame(pca_model$x)
 data.frame(pca_model$rotation[, 1:7])
 ```
 
-
 ```{r}
 biplot(pca_model)
 ```
 
-Model `Rec`
-```{r}
-summary(lm(Rec ~ . - RecYds - RecTD - FL, data = train_data))
-```
-
-```{r}
-best_subset <- summary(regsubsets(Rec ~ . - RecYds - RecTD - FL, data = train_data))
-
-par(mfrow=c(3,1))
-ggplot() + geom_line(aes(1:8, best_subset$cp)) + labs(title='Mallows\' Cp',x='Predictors',y='Value')
-ggplot() + geom_line(aes(1:8, best_subset$bic)) + labs(title='BIC', x='Predictors', y='Value')
-ggplot() + geom_line(aes(1:8, best_subset$adjr2)) + labs(title='Adjusted R^2', x='Predictors', y='Value')
-
-best_subset
-```
-
-```{r}
-kfold_cv <- data.frame(lambda = seq(0, 5, length.out=20), mse = rep(NA, 20))
-for (lambda in kfold_cv$lambda) {
-    folds <- sample(1:10, nrow(pca_train), replace = TRUE)
-    mse <- rep(NA, 10)
-    for (k in 1:10) {
-        trn <- folds != k
-        x <- model.matrix(Rec ~ . - RecYds - RecTD - FL, train_data[trn, ])
-        y <- train_data$Rec[trn]
-        model <- glmnet(x, y, lambda=lambda)
-        newx = model.matrix(Rec ~ . - RecYds - RecTD - FL, train_data[-trn, ])
-        pred <- predict(model, newx = newx)
-        mse[k] <- mean((train_data$Rec[-trn] - pred)^2)
-    }
-    kfold_cv$mse[which(kfold_cv$lambda == lambda)] <- mean(mse)
-}
-
-ggplot(kfold_cv) +
-    geom_line(aes(lambda, mse)) +
-    labs(title='10-Fold MSE for LASSO', x='lambda', y='MSE')
-```
-
-```{r}
-summary(lm(train_data$Rec ~ ., data = pca_scores))
-```
+# Principal Components Regression
 
 ```{r}
 pca_train <- pca_scores %>%
   mutate(Rec = train_data$Rec)
 results <- data.frame(pc = 1:15, mse = rep(NA, 15))
+
 for (pc in results$pc) {
-  folds <- sample(1:10, nrow(pca_train), replace = TRUE)
-  mse <- rep(NA, 10)
-  for (k in 1:10) {
-    trn <- folds != k
-    model <- lm(Rec ~ ., data = pca_train[trn, c(1:pc, 16)])
-    pred <- predict(model, pca_train[-trn, c(1:pc, 16)])
-    mse[k] <- mean((pca_train$Rec[-trn] - pred)^2)
+  mse <- rep(NA, K)
+  for (k in 1:K) {
+    trn <- pca_train[folds != k, c(1:pc, 16)]
+    vld <- pca_train[folds == k, c(1:pc, 16)]
+    
+    pca_model <- lm(Rec ~ ., data = trn)
+    pred <- predict(pca_model, vld)
+    mse[k] <- mean((vld$Rec - pred)^2)
   }
   results$mse[which(results$pc == pc)] <- mean(mse)
 }
+
 ggplot(results) +
   geom_line(aes(pc, mse)) +
   geom_point(aes(7, mse[7]), color = 'red') +
   labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
-```
 
-```{r}
-model <- tree(Rec ~ . - RecYds - RecTD - FL, data = train_data)
-plot(model)
-text(model)
-```
-
-
-Model `RecYds`
-```{r}
-summary(lm(RecYds ~ . - Rec - RecTD - FL, data = train_data))
-```
-
-```{r}
-best_subset <- summary(regsubsets(RecYds ~ . - Rec - RecTD - FL, data = train_data))
-
-par(mfrow=c(3,1))
-ggplot() + geom_line(aes(1:8, best_subset$cp)) + labs(title='Mallows\' Cp',x='Predictors',y='Value')
-ggplot() + geom_line(aes(1:8, best_subset$bic)) + labs(title='BIC', x='Predictors', y='Value')
-ggplot() + geom_line(aes(1:8, best_subset$adjr2)) + labs(title='Adjusted R^2', x='Predictors', y='Value')
-
-best_subset
-```
-
-```{r}
-summary(lm(train_data$RecYds ~ ., data = pca_scores))
+recMSE <- results$mse[which(results$pc == 7)]
 ```
 
 ```{r}
 pca_train <- pca_scores %>%
   mutate(RecYds = train_data$RecYds)
 results <- data.frame(pc = 1:15, mse = rep(NA, 15))
+
 for (pc in results$pc) {
-  folds <- sample(1:10, nrow(pca_train), replace = TRUE)
-  mse <- rep(NA, 10)
-  for (k in 1:10) {
-    trn <- folds != k
-    model <- lm(RecYds ~ ., data = pca_train[trn, c(1:pc, 16)])
-    pred <- predict(model, pca_train[-trn, c(1:pc, 16)])
-    mse[k] <- mean((pca_train$Rec[-trn] - pred)^2)
+  mse <- rep(NA, K)
+  for (k in 1:K) {
+    trn <- pca_train[folds != k, c(1:pc, 16)]
+    vld <- pca_train[folds == k, c(1:pc, 16)]
+    
+    pca_model <- lm(RecYds ~ ., data = trn)
+    pred <- predict(pca_model, vld)
+    mse[k] <- mean((vld$RecYds - pred)^2)
   }
   results$mse[which(results$pc == pc)] <- mean(mse)
 }
+
 ggplot(results) +
   geom_line(aes(pc, mse)) +
   geom_point(aes(7, mse[7]), color = 'red') +
   labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
-```
 
-
-Model `RecTD`
-```{r}
-summary(lm(RecTD ~ . - Rec - RecYds - FL, data = train_data))
-```
-
-```{r}
-best_subset <- summary(regsubsets(RecTD ~ . - Rec - RecYds - FL, data = train_data))
-
-par(mfrow=c(3,1))
-ggplot() + geom_line(aes(1:8, best_subset$cp)) + labs(title='Mallows\' Cp',x='Predictors',y='Value')
-ggplot() + geom_line(aes(1:8, best_subset$bic)) + labs(title='BIC', x='Predictors', y='Value')
-ggplot() + geom_line(aes(1:8, best_subset$adjr2)) + labs(title='Adjusted R^2', x='Predictors', y='Value')
-
-best_subset
-```
-
-```{r}
-summary(lm(train_data$RecTD ~ ., data = pca_scores))
+recYdsMSE <- results$mse[which(results$pc == 7)]
 ```
 
 ```{r}
 pca_train <- pca_scores %>%
   mutate(RecTD = train_data$RecTD)
 results <- data.frame(pc = 1:15, mse = rep(NA, 15))
+
 for (pc in results$pc) {
-  folds <- sample(1:10, nrow(pca_train), replace = TRUE)
-  mse <- rep(NA, 10)
-  for (k in 1:10) {
-    trn <- folds != k
-    model <- lm(RecTD ~ ., data = pca_train[trn, c(1:pc, 16)])
-    pred <- predict(model, pca_train[-trn, c(1:pc, 16)])
-    mse[k] <- mean((pca_train$Rec[-trn] - pred)^2)
+  mse <- rep(NA, K)
+  for (k in 1:K) {
+    trn <- pca_train[folds != k, c(1:pc, 16)]
+    vld <- pca_train[folds == k, c(1:pc, 16)]
+    
+    pca_model <- lm(RecTD ~ ., data = trn)
+    pred <- predict(pca_model, vld)
+    mse[k] <- mean((vld$RecTD - pred)^2)
   }
   results$mse[which(results$pc == pc)] <- mean(mse)
 }
+
 ggplot(results) +
   geom_line(aes(pc, mse)) +
   geom_point(aes(8, mse[8]), color = 'red') +
   labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
-```
 
-Model `FL`
-```{r}
-summary(lm(FL ~ . - Rec - RecYds - RecTD, data = train_data))
-```
-
-```{r}
-best_subset <- summary(regsubsets(FL ~ . - Rec - RecYds - RecTD, data = train_data))
-
-par(mfrow=c(3,1))
-ggplot() + geom_line(aes(1:8, best_subset$cp)) + labs(title='Mallows\' Cp',x='Predictors',y='Value')
-ggplot() + geom_line(aes(1:8, best_subset$bic)) + labs(title='BIC', x='Predictors', y='Value')
-ggplot() + geom_line(aes(1:8, best_subset$adjr2)) + labs(title='Adjusted R^2', x='Predictors', y='Value')
-
-best_subset
-```
-
-```{r}
-summary(lm(train_data$FL ~ ., data = pca_scores))
+recTDMSE <- results$mse[which(results$pc == 8)]
 ```
 
 ```{r}
 pca_train <- pca_scores %>%
   mutate(FL = train_data$FL)
 results <- data.frame(pc = 1:15, mse = rep(NA, 15))
+
 for (pc in results$pc) {
-  folds <- sample(1:10, nrow(pca_train), replace = TRUE)
-  mse <- rep(NA, 10)
-  for (k in 1:10) {
-    trn <- folds != k
-    model <- lm(FL ~ ., data = pca_train[trn, c(1:pc, 16)])
-    pred <- predict(model, pca_train[-trn, c(1:pc, 16)])
-    mse[k] <- mean((pca_train$FL[-trn] - pred)^2)
+  mse <- rep(NA, K)
+  for (k in 1:K) {
+    trn <- pca_train[folds != k, c(1:pc, 16)]
+    vld <- pca_train[folds == k, c(1:pc, 16)]
+    
+    pca_model <- lm(FL ~ ., data = trn)
+    pred <- predict(pca_model, vld)
+    mse[k] <- mean((vld$FL - pred)^2)
   }
   results$mse[which(results$pc == pc)] <- mean(mse)
 }
+
 ggplot(results) +
   geom_line(aes(pc, mse)) +
   geom_point(aes(7, mse[7]), color = 'red') +
   labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
+
+FLMSE <- results$mse[which(results$pc == 7)]
 ```
 
-Modeling Procedure:
+10-fold cross validation PC regression MSEs:
+```{r}
+pcr_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
 
-- Backward/forward selection
-- LASSO/Ridge
-- Regression (are assumptions met? how can we improve this?)
-- Non-linear regression (Is this necessary?)
-- PCA (many of our predictors are likely correlated)
-- Tree based models
-- All fit using k fold cross validation
-- Predict on typical game averages
-- Test against 2021 data
+pcr_results$MSE[which(pcr_results$Model == 'Rec')] <- recMSE
+pcr_results$MSE[which(pcr_results$Model == 'RecYds')] <- recYdsMSE
+pcr_results$MSE[which(pcr_results$Model == 'RecTD')] <- recTDMSE
+pcr_results$MSE[which(pcr_results$Model == 'FL')] <- FLMSE
+
+pcr_results
+```
+
+# Tree Models
 
 
 
+# Results
 
+```{r}
+results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
+                      MLR = mlr_results$MSE,
+                      Subset = best_subset_results$MSE,
+                      LASSO = lasso_results$MSE,
+                      PCR = pcr_results$MSE); results
+```
 
+# Modeling Procedure
+
+- Multiple linear regression
+- Best subset selection
+- LASSO
+- Principal components regression
+
+- Ridge regression?
+- Non-linear regression?
+- Tree model?
+
+- Predict 'typical games'
+- Test against 2021 fanPts
 
