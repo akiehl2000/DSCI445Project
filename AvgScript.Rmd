@@ -1,0 +1,31 @@
+---
+title: "Fantasy"
+author: "Zach Brazil"
+date: "11/29/2021"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r, warning=FALSE, message=FALSE}
+data = read_csv('./Data/masterDF[2018-2020].csv')
+
+freq = as.data.frame(table(data$Player))
+colnames(freq) = c("Player", "Freq")
+
+data = merge(data, freq, by = "Player")
+
+avg = data %>%
+  group_by(Player) %>%
+  filter(Freq > 16) %>%
+  do(tail(.,17)) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE)
+
+avg = select(avg, -c(...2,Freq))
+avg
+
+avg %>%
+  write_csv('./Data/averages.csv')
+```
