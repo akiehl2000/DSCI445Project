@@ -563,7 +563,141 @@ pcr_results
 
 # Tree Models
 
+```{r}
+tree_model <- tree(Rec ~ . - RecYds - RecTD - FL, train_data)
+cv_tree_model <- cv.tree(tree_model)
 
+ggplot() +
+  geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
+  scale_x_discrete(limits = factor(1:10)) +
+  labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
+
+tree_model <- prune.tree(tree_model, best = '5')
+summary(tree_model)
+
+plot(tree_model)
+text(tree_model)
+
+tree_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  tree_model <- prune.tree(tree(Rec ~ . - RecYds - RecTD - FL, trn), best = '5')
+  
+  pred <- predict(tree_model, vld)
+  
+  tree_mse[k] <- mean((vld$Rec - pred)^2)
+}
+
+recMSE <- round(mean(tree_mse), 3)
+```
+
+```{r}
+tree_model <- tree(RecYds ~ . - Rec - RecTD - FL, train_data)
+cv_tree_model <- cv.tree(tree_model)
+
+ggplot() +
+  geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
+  scale_x_discrete(limits = factor(1:10)) +
+  labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
+
+tree_model <- prune.tree(tree_model, best = '4')
+summary(tree_model)
+
+plot(tree_model)
+text(tree_model)
+
+tree_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  tree_model <- prune.tree(tree(RecYds ~ . - Rec - RecTD - FL, trn), best = '4')
+  
+  pred <- predict(tree_model, vld)
+  
+  tree_mse[k] <- mean((vld$RecYds - pred)^2)
+}
+
+recYdsMSE <- round(mean(tree_mse), 3)
+```
+
+```{r}
+tree_model <- tree(RecTD ~ . - Rec - RecYds - FL, train_data)
+cv_tree_model <- cv.tree(tree_model)
+
+ggplot() +
+  geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
+  scale_x_discrete(limits = factor(1:10)) +
+  labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
+
+tree_model <- prune.tree(tree_model, best = '2')
+summary(tree_model)
+
+plot(tree_model)
+text(tree_model)
+
+tree_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  tree_model <- prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, trn), best = '2')
+  
+  pred <- predict(tree_model, vld)
+  
+  tree_mse[k] <- mean((vld$RecTD - pred)^2)
+}
+
+recTDMSE <- round(mean(tree_mse), 3)
+```
+
+```{r}
+tree_model <- tree(FL ~ . - Rec - RecYds - RecTD, train_data)
+cv_tree_model <- cv.tree(tree_model)
+
+ggplot() +
+  geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
+  scale_x_discrete(limits = factor(1:10)) +
+  labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
+
+tree_model <- prune.tree(tree_model, best = '2')
+summary(tree_model)
+
+plot(tree_model)
+text(tree_model)
+
+tree_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  tree_model <- prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, trn), best = '2')
+  
+  pred <- predict(tree_model, vld)
+  
+  tree_mse[k] <- mean((vld$FL - pred)^2)
+}
+
+FLMSE <- round(mean(tree_mse), 3)
+```
+
+10-fold cross validation pruned tree MSEs:
+```{r}
+tree_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
+
+tree_results$MSE[which(tree_results$Model == 'Rec')] <- recMSE
+tree_results$MSE[which(tree_results$Model == 'RecYds')] <- recYdsMSE
+tree_results$MSE[which(tree_results$Model == 'RecTD')] <- recTDMSE
+tree_results$MSE[which(tree_results$Model == 'FL')] <- FLMSE
+
+tree_results
+```
 
 # Results
 
@@ -572,7 +706,8 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
                       MLR = mlr_results$MSE,
                       Subset = best_subset_results$MSE,
                       LASSO = lasso_results$MSE,
-                      PCR = pcr_results$MSE); results
+                      PCR = pcr_results$MSE,
+                      Tree = tree_results$MSE); results
 ```
 
 # Modeling Procedure
@@ -581,10 +716,10 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
 - Best subset selection
 - LASSO
 - Principal components regression
+- Tree-based model
 
 - Ridge regression?
 - Non-linear regression?
-- Tree model?
 
 - Predict 'typical games'
 - Test against 2021 fanPts
