@@ -1,0 +1,100 @@
+---
+title: "Testing Script"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+Read in the data:
+```{r}
+fileName <- 'averages.csv'
+train_data <- read_csv(fileName)
+
+fileName <- './Data/masterDF[2021-2021].csv'
+test_data <- read_csv(fileName) %>%
+  select(-'...1')
+```
+
+Build weights table:
+```{r}
+weights <- data.frame(stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushTD', 'Rec', 'RecYds', 'RecTD', 'FL'),
+                       pts = c(.04, 4, -1, .1, 6, 1, .1, 6, -2))
+```
+
+`PassYds` model:
+```{r}
+
+```
+`PassTD` model:
+```{r}
+
+```
+`PassInt` model:
+```{r}
+
+```
+`FL` model (pass):
+```{r}
+
+```
+`RushYds` model:
+```{r}
+
+```
+`RushTD` model:
+```{r}
+
+```
+`FL` model (rush):
+```{r}
+
+```
+`Rec` model:
+```{r}
+
+```
+`RecYds` model:
+```{r}
+
+```
+`RecTD` model:
+```{r}
+
+```
+`FL` model (receiving):
+```{r}
+
+```
+
+Collect stat predictions and weight according to fantasy values:
+```{r}
+predictions <- data.frame(Player = averages$Player,
+                          PassYds = passYdsPred,
+                          PassTD = passTDPred,
+                          passInt = passIntPred,
+                          RushYds = rushYdsPred,
+                          RushTD = rushTDPred,
+                          Rec = recPred,
+                          RecYds = recYdsPred,
+                          RecTD = recTDPred,
+                          FL = FLPred)
+predictions <- predictions %>% 
+  mutate(fanPts = as.vector(as.matrix(predictions[, weights$stat]) %*% weights$pts))
+```
+
+```{r}
+player_mse <- rep(NA, nrow(predictions))
+
+for (i in 1:nrow(predictions)) {
+  player <- predictions$Player[i]
+  games <- test_data[which(test_data$Player == player),]
+  player_mse[i] <- mean((predictions$fanPts - games$fanPts)^2)
+}
+
+predictions %>%
+  mutate(mse = player_mse)
+```
+
