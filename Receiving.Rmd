@@ -703,6 +703,25 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
                       Tree = tree_results$MSE); results
 ```
 
+Save best models as .rds files.
+```{r}
+# Best subset selection model chosen for Rec
+lm(Rec ~ Tgt + RecLng + RecYBC + RecYAC + YACPerR + ADOT + RecDrop + Rat, train_data) %>% 
+  saveRDS('./Models/recModel.rds')
+
+# Principal components regression model chosen for RecYds
+lm(RecYds ~ ., pca_scores[,1:7] %>% mutate(RecYds = train_data$RecYds)) %>%
+  saveRDS('./Models/recYdsModel.rds')
+
+# Tree-based model chosen for RecTD
+prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2') %>%
+  saveRDS('./Models/recTDModel.rds')
+
+# Tree-based model chosen for FL
+prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, train_data), best = '2') %>%
+  saveRDS('./Models/recFLModel.rds')
+```
+
 # Modeling Procedure
 
 - Multiple linear regression
