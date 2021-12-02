@@ -26,7 +26,7 @@ set.seed(445)
 
 # Setup
 
-Read in the data and isolate relevant fields.
+Read in the data and select relevant fields for training set. 
 ```{r, message=FALSE}
 fileName <- './Data/masterDF[2018-2020].csv'
 rec_data <- read_csv(fileName) %>%
@@ -47,13 +47,14 @@ for (i in 1:N) {
   }
 }
 ```
-
+Check dataframe for integrity. 
 ```{r}
 diagnose(train_data)
 ```
 
 # Exploratory 
 
+Exploratory coorelation matrix for four response variables of interest. 
 ```{r}
 ggpairs(train_data[,c(2:4, 7)])
 ```
@@ -73,7 +74,7 @@ for (k in 1:K) {
   pred <- predict(model, vld)
   mlr_mse$mse1[which(mlr_mse$k == k)] <- mean((vld$Rec - pred)^2)
   
-  model <- lm(RecYds ~ . - Rec - RecTD - FL, data = trn)
+  model <- lm(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = trn)
   pred <- predict(model, vld)
   mlr_mse$mse2[which(mlr_mse$k == k)] <- mean((vld$RecYds - pred)^2)
   
@@ -137,24 +138,24 @@ recMSE <- round(mean(best_subset_mse), 3)
 
 Best subset selection performed with `RecYds` as response. 
 ```{r}
-best_subset <- regsubsets(RecYds ~ . - Rec - RecTD - FL, data = train_data, nvmax = 15)
+best_subset <- regsubsets(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, nvmax = 15)
 best_subset_sum <- summary(best_subset)
 
-opt <- 2
+opt <- 5
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$cp)) + 
+  geom_line(aes(1:14, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$bic)) + 
+  geom_line(aes(1:14, best_subset_sum$bic)) + 
   geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
+  geom_line(aes(1:14, best_subset_sum$adjr2)) + 
   geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
@@ -166,7 +167,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  best_subset <- lm(RecYds ~ RecYBC + RecYAC, trn)
+  best_subset <- lm(RecYds ~ Tgt + RecLng + FirstDRec + RecYBC + YBCPerR, trn)
   pred <- predict(best_subset, vld)
   best_subset_mse[k] <- mean((vld$RecYds - pred)^2)
 }
@@ -301,7 +302,7 @@ recMSE <- round(mean(lasso_mse), 3)
 
 Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0.74$ and no predictors were excluded. However, with negligible penalty to MSE, $\lambda\approx2.72$ can be used and a much simpler model can be obtained. This selected model uses four predictors and has $MSE=12.9$. 
 ```{r}
-x <- model.matrix(RecYds ~ . - Rec - RecTD - FL, train_data)
+x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecYAC, train_data)
 y <- train_data$RecYds
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
@@ -317,12 +318,12 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  x <- model.matrix(RecYds ~ . - Rec - RecTD - FL, trn)
+  x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecYAC, trn)
   y <- trn$RecYds
   
   lasso_model <- glmnet(x, y, lambda = exp(1))
   
-  pred_x <- model.matrix(RecYds ~ . - Rec - RecTD - FL, vld)
+  pred_x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecYAC, vld)
   pred <- predict(lasso_model, pred_x)
   
   lasso_mse[k] <- mean((vld$RecYds - pred)^2)
@@ -410,26 +411,28 @@ lasso_results
 
 # Principal Componenets Analysis
 
+Principal component analysis perfromed on training data. 
 ```{r}
 pca_model <- prcomp(train_data[, -c(2:4, 7)], center = TRUE, scale = TRUE)
 summary(pca_model)
 ```
-
+Percentage of total variance explained by each principal component. 
 ```{r}
 fviz_eig(pca_model)
 ```
-
+Principal component loading matrix. 
 ```{r}
 pca_scores <- data.frame(pca_model$x)
 data.frame(pca_model$rotation[, 1:7])
 ```
-
+Principal component biplot for PC1 and PC2.
 ```{r}
 biplot(pca_model)
 ```
 
 # Principal Components Regression
 
+Principal components regression performed on the `Rec` variable. 
 ```{r}
 pca_train <- pca_scores %>%
   mutate(Rec = train_data$Rec)
@@ -455,7 +458,7 @@ ggplot(results) +
 
 recMSE <- results$mse[which(results$pc == 7)]
 ```
-
+Principal components regression performed on the `RecYds` variable. 
 ```{r}
 pca_train <- pca_scores %>%
   mutate(RecYds = train_data$RecYds)
@@ -481,7 +484,7 @@ ggplot(results) +
 
 recYdsMSE <- results$mse[which(results$pc == 7)]
 ```
-
+Principal components regression performed on the `RecTD` variable. 
 ```{r}
 pca_train <- pca_scores %>%
   mutate(RecTD = train_data$RecTD)
@@ -507,7 +510,7 @@ ggplot(results) +
 
 recTDMSE <- results$mse[which(results$pc == 8)]
 ```
-
+Principal components regression performed on the `FL` variable. 
 ```{r}
 pca_train <- pca_scores %>%
   mutate(FL = train_data$FL)
@@ -548,12 +551,14 @@ pcr_results
 
 # Tree Models
 
+Tree model built to predict `Rec` variable. 
 ```{r}
 tree_model <- tree(Rec ~ . - RecYds - RecTD - FL, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
 ggplot() +
   geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
+  geom_point(aes(5, cv_tree_model$dev[which(cv_tree_model$size == 5)]), color = 'red') +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
 
@@ -578,17 +583,18 @@ for (k in 1:K) {
 
 recMSE <- round(mean(tree_mse), 3)
 ```
-
+Tree model built to predict `RecYds` variable. 
 ```{r}
 tree_model <- tree(RecYds ~ . - Rec - RecTD - FL, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
 ggplot() +
   geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
+  geom_point(aes(7, cv_tree_model$dev[which(cv_tree_model$size == 7)]), color = 'red') +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
 
-tree_model <- prune.tree(tree_model, best = '4')
+tree_model <- prune.tree(tree_model, best = '7')
 summary(tree_model)
 
 plot(tree_model)
@@ -600,7 +606,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  tree_model <- prune.tree(tree(RecYds ~ . - Rec - RecTD - FL, trn), best = '4')
+  tree_model <- prune.tree(tree(RecYds ~ . - Rec - RecTD - FL, trn), best = '7')
   
   pred <- predict(tree_model, vld)
   
@@ -609,13 +615,14 @@ for (k in 1:K) {
 
 recYdsMSE <- round(mean(tree_mse), 3)
 ```
-
+Tree model built to predict `RecTD` variable. 
 ```{r}
 tree_model <- tree(RecTD ~ . - Rec - RecYds - FL, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
 ggplot() +
   geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
+  geom_point(aes(2, cv_tree_model$dev[which(cv_tree_model$size == 2)]), color = 'red') +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
 
@@ -640,13 +647,14 @@ for (k in 1:K) {
 
 recTDMSE <- round(mean(tree_mse), 3)
 ```
-
+Tree model built to predict `FL` variable. 
 ```{r}
 tree_model <- tree(FL ~ . - Rec - RecYds - RecTD, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
 ggplot() +
   geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
+  geom_point(aes(2, cv_tree_model$dev[which(cv_tree_model$size == 2)]), color = 'red') +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
 
@@ -671,7 +679,6 @@ for (k in 1:K) {
 
 FLMSE <- round(mean(tree_mse), 3)
 ```
-
 10-fold cross validation pruned tree MSEs:
 ```{r}
 tree_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
@@ -686,6 +693,7 @@ tree_results
 
 # Results
 
+MSE results using standardized seed-determined 10-fold training cross validation procedure. 
 ```{r}
 results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
                       MLR = mlr_results$MSE,
