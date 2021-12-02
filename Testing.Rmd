@@ -11,7 +11,7 @@ library(tidyverse)
 Read in the data:
 ```{r}
 fileName <- 'averages.csv'
-train_data <- read_csv(fileName)
+pred_data <- read_csv(fileName)
 
 fileName <- './Data/masterDF[2021-2021].csv'
 test_data <- read_csv(fileName) %>%
@@ -54,19 +54,23 @@ weights <- data.frame(stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushT
 ```
 `Rec` model:
 ```{r}
-
+recPred <- readRDS('./Models/recModel.rds') %>%
+  predict(pred_data)
 ```
 `RecYds` model:
 ```{r}
-
+recYdsPred <- readRDS('./Models/recYdsModel.rds') %>%
+  predict(recYdsPred)
 ```
 `RecTD` model:
 ```{r}
-
+recTDPred <- readRDS('./Models/recTDModel.rds') %>%
+  predict(recYdsPred)
 ```
 `FL` model (receiving):
 ```{r}
-
+FLPred <- readRDS('./Models/FLModel.rds') %>%
+  predict(FLPred)
 ```
 
 Collect stat predictions and weight according to fantasy values:
