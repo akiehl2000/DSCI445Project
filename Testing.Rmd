@@ -55,22 +55,26 @@ weights <- data.frame(stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushT
 `Rec` model:
 ```{r}
 recPred <- readRDS('./Models/recModel.rds') %>%
-  predict(pred_data)
+  predict(pred_data) %>%
+  round()
 ```
 `RecYds` model:
 ```{r}
 recYdsPred <- readRDS('./Models/recYdsModel.rds') %>%
-  predict(recYdsPred)
+  predict(recYdsPred) %>%
+  round()
 ```
 `RecTD` model:
 ```{r}
 recTDPred <- readRDS('./Models/recTDModel.rds') %>%
-  predict(recYdsPred)
+  predict(recYdsPred) %>%
+  round()
 ```
 `FL` model (receiving):
 ```{r}
 FLPred <- readRDS('./Models/FLModel.rds') %>%
-  predict(FLPred)
+  predict(FLPred) %>%
+  round()
 ```
 
 Collect stat predictions and weight according to fantasy values:
