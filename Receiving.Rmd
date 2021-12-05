@@ -5,7 +5,7 @@ date: "11/24/21"
 output: html_document
 ---
 
-```{r setup, include=FALSEm, message=FALSE, warning=FALSE}
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(GGally)
@@ -17,6 +17,8 @@ library(caret)
 library(leaps)
 library(glmnet)
 library(tree)
+library(corrplot)
+library(regclass)
 ```
 
 For reproducibility:
@@ -59,9 +61,22 @@ Exploratory coorelation matrix for four response variables of interest.
 ggpairs(train_data[,c(2:4, 7)])
 ```
 
+Correlation matrix used to identify multicollinearity. Evidence of high correlation found between `FirstDRec` and `Tgt` (0.75), `RecYBC` and `FirstDRec` (0.77), `ADOT` and `YBCPerR` (0.86), and `DropPerRec` and `RecDrop` (0.84). 
+```{r}
+VIF(lm(Rec ~ . - RecYds - RecTD - FL, train_data))
+
+source("http://www.sthda.com/upload/rquery_cormat.r")
+rquery.cormat(train_data[,-c(2:4, 7)])$r
+
+model <- lm(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data)
+VIF(model)
+summary(model)
+plot(model)
+```
+
 # Multiple Linear Regression
 
-Multiple linear regression models with 10-fold cross-validation MSE reported. 
+Multiple linear regression models with 10-fold cross-validation MSE reported. `RecYAC` removed when predicting `RecYds` since $RecYBC+RecYAC=RecYds$ and `RecYBC` is more predictive than `RecYAC`. 
 ```{r}
 mlr_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
 mlr_mse <- data.frame(k = 1:K, mse1 = rep(NA, K), mse2 = rep(NA, K), mse3 = rep(NA, K), mse4 = rep(NA, K))
@@ -71,19 +86,23 @@ for (k in 1:K) {
   vld <- train_data[folds == k,]
   
   model <- lm(Rec ~ . - RecYds - RecTD - FL, data = trn)
-  pred <- predict(model, vld)
+  model <- lm(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, trn)
+  pred <- round(predict(model, vld))
   mlr_mse$mse1[which(mlr_mse$k == k)] <- mean((vld$Rec - pred)^2)
   
   model <- lm(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = trn)
-  pred <- predict(model, vld)
+  model <- lm(RecYds ~ . - Rec - RecTD - FL - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, trn)
+  pred <- round(predict(model, vld))
   mlr_mse$mse2[which(mlr_mse$k == k)] <- mean((vld$RecYds - pred)^2)
   
   model <- lm(RecTD ~ . - Rec - RecYds - FL, data = trn)
-  pred <- predict(model, vld)
+  model <- lm(RecTD ~ . - Rec - RecYds - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, trn)
+  pred <- round(predict(model, vld))
   mlr_mse$mse3[which(mlr_mse$k == k)] <- mean((vld$RecTD - pred)^2)
   
   model <- lm(FL ~ . - Rec - RecYds - RecTD, data = trn)
-  pred <- predict(model, vld)
+  model <- lm(FL ~ . - Rec - RecYds - RecTD - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, trn)
+  pred <- round(predict(model, vld))
   mlr_mse$mse4[which(mlr_mse$k == k)] <- mean((vld$FL - pred)^2)
 }
 
@@ -95,67 +114,41 @@ mlr_results$MSE[which(mlr_results$Model == 'FL')] <- round(mean(mlr_mse$mse4), 3
 mlr_results
 ```
 
-# Best Subset Selection
-
-Best subset selection performed with `Rec` as response. 
+Rec: Tgt, RecLng, FirstDRec, RecDrop, Rat
+RecYds: Tgt, RecLng, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT, RecDrop, Rat
+RecTD: RecYBC, ADOT, RecBrkTkl, Rat
+FL: Fmb
 ```{r}
-best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL, data = train_data, nvmax = 15)
-best_subset_sum <- summary(best_subset)
-
-opt <- 8
-
-par(mfrow=c(3,1))
-ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$cp)) + 
-  geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
-  labs(title='Mallows\' Cp',x='Predictors',y='Value')
-
-ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$bic)) + 
-  geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
-  labs(title='BIC', x='Predictors', y='Value')
-
-ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
-  geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
-  labs(title='Adjusted R^2', x='Predictors', y='Value')
-
-coefficients(best_subset, id = as.character(opt))
-
-best_subset_mse <- rep(NA, K)
-
-for (k in 1:K) {
-  trn <- train_data[folds != k,]
-  vld <- train_data[folds == k,]
-  
-  best_subset <- lm(Rec ~ Tgt + RecLng + RecYBC + RecYAC + YACPerR + ADOT + RecDrop + Rat, trn)
-  pred <- predict(best_subset, vld)
-  best_subset_mse[k] <- mean((vld$Rec - pred)^2)
-}
-
-recMSE <- round(mean(best_subset_mse), 3)
+plot(train_data$Tgt, train_data$Rec)
+plot(train_data$RecLng, train_data$Rec) # poly
+plot(train_data$RecLng, train_data$RecYds) #poly
+plot(train_data$YBCPerR, train_data$RecYds) # poly
 ```
 
-Best subset selection performed with `RecYds` as response. 
+
+# Best Subset Selection
+
+Best subset selection performed with `Rec` as response. A non-linear relationship with `RecLng` was explored but nothing significant was found. 
 ```{r}
-best_subset <- regsubsets(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, nvmax = 15)
+best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL, data = train_data, nvmax = 15)
+best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
 best_subset_sum <- summary(best_subset)
 
 opt <- 5
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:14, best_subset_sum$cp)) + 
+  geom_line(aes(1:10, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:14, best_subset_sum$bic)) + 
+  geom_line(aes(1:10, best_subset_sum$bic)) + 
   geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:14, best_subset_sum$adjr2)) + 
+  geom_line(aes(1:10, best_subset_sum$adjr2)) + 
   geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
@@ -167,8 +160,48 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  best_subset <- lm(RecYds ~ Tgt + RecLng + FirstDRec + RecYBC + YBCPerR, trn)
-  pred <- predict(best_subset, vld)
+  best_subset <- lm(Rec ~ Tgt + RecLng + RecYAC + RecDrop + Rat, trn)
+  pred <- round(predict(best_subset, vld))
+  best_subset_mse[k] <- mean((vld$Rec - pred)^2)
+}
+
+recMSE <- round(mean(best_subset_mse), 3)
+```
+
+Best subset selection performed with `RecYds` as response. Some polynomial terms included. 
+```{r}
+best_subset <- regsubsets(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, nvmax = 15)
+best_subset <- regsubsets(RecYds ~ . + I(RecLng^2) + I(RecYBC^2) - Rec - RecTD - FL - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
+best_subset_sum <- summary(best_subset)
+
+opt <- 4
+
+par(mfrow=c(3,1))
+ggplot() + 
+  geom_line(aes(1:10, best_subset_sum$cp)) + 
+  geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
+  labs(title='Mallows\' Cp',x='Predictors',y='Value')
+
+ggplot() + 
+  geom_line(aes(1:10, best_subset_sum$bic)) + 
+  geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
+  labs(title='BIC', x='Predictors', y='Value')
+
+ggplot() + 
+  geom_line(aes(1:10, best_subset_sum$adjr2)) + 
+  geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
+  labs(title='Adjusted R^2', x='Predictors', y='Value')
+
+coefficients(best_subset, id = as.character(opt))
+
+best_subset_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  best_subset <- lm(RecYds ~ Tgt + RecLng + Rat + I(RecYBC^2), trn)
+  pred <- round(predict(best_subset, vld))
   best_subset_mse[k] <- mean((vld$RecYds - pred)^2)
 }
 
@@ -178,23 +211,24 @@ recYdsMSE <- round(mean(best_subset_mse), 3)
 Best subset selection performed with `RecTD` as response. 
 ```{r}
 best_subset <- regsubsets(RecTD ~ . - Rec - RecYds - FL, data = train_data, nvmax = 15)
+best_subset <- regsubsets(RecTD ~ . - Rec - RecYds - FL - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
 best_subset_sum <- summary(best_subset)
 
-opt <- 9
+opt <- 3
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$cp)) + 
+  geom_line(aes(1:10, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$bic)) + 
+  geom_line(aes(1:10, best_subset_sum$bic)) + 
   geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
+  geom_line(aes(1:10, best_subset_sum$adjr2)) + 
   geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
@@ -206,8 +240,8 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  best_subset <- lm(RecTD ~ Tgt + RecLng + RecYBC + YBCPerR + RecYAC + ADOT + RecInt + Rat, trn)
-  pred <- predict(best_subset, vld)
+  best_subset <- lm(RecTD ~ Tgt + RecInt + Rat, trn)
+  pred <- round(predict(best_subset, vld))
   best_subset_mse[k] <- mean((vld$RecTD - pred)^2)
 }
 
@@ -217,24 +251,25 @@ recTDMSE <- round(mean(best_subset_mse), 3)
 Best subset selection performed with `FL` as response. 
 ```{r}
 best_subset <- regsubsets(FL ~ . - Rec - RecYds - RecTD, data = train_data, nvmax = 15)
+best_subset <- regsubsets(FL ~ . - Rec - RecYds - RecTD - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
 best_subset_sum <- summary(best_subset)
 
-opt <- 6
+opt <- 4
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$cp)) + 
+  geom_line(aes(1:10, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$bic)) + 
-  geom_point(aes(opt - 5, best_subset_sum$bic[opt - 5]), color = 'red') + 
+  geom_line(aes(1:10, best_subset_sum$bic)) + 
+  geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
-  geom_point(aes(opt + 2, best_subset_sum$adjr2[opt + 2]), color = 'red') + 
+  geom_line(aes(1:10, best_subset_sum$adjr2)) + 
+  geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
 coefficients(best_subset, id = as.character(opt))
@@ -245,8 +280,8 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  best_subset <- lm(FL ~ Tgt + Fmb + FirstDRec + RecYBC + ADOT + RecDrop, trn)
-  pred <- predict(best_subset, vld)
+  best_subset <- lm(FL ~ Tgt + Fmb + ADOT + RecDrop, trn)
+  pred <- round(predict(best_subset, vld))
   best_subset_mse[k] <- mean((vld$FL - pred)^2)
 }
 
@@ -427,7 +462,7 @@ data.frame(pca_model$rotation[, 1:7])
 ```
 Principal component biplot for PC1 and PC2.
 ```{r}
-biplot(pca_model)
+# biplot(pca_model)
 ```
 
 # Principal Components Regression
@@ -706,7 +741,7 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
 Save best models as .rds files.
 ```{r}
 # Best subset selection model chosen for Rec
-lm(Rec ~ Tgt + RecLng + RecYBC + RecYAC + YACPerR + ADOT + RecDrop + Rat, train_data) %>% 
+lm(Rec ~ Tgt + RecLng + RecYAC + RecDrop + Rat, train_data) %>% 
   saveRDS('./Models/recModel.rds')
 
 # Principal components regression model chosen for RecYds
