@@ -26,19 +26,27 @@ weights <- data.frame(stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushT
 
 `PassYds` model:
 ```{r}
-
+passYdsPred <- readRDS('./Models/passydsModel.rds') %>%
+  predict(pred_data) %>%
+  round()
 ```
 `PassTD` model:
 ```{r}
-
+passTDPred <- readRDS('./Models/passtdModel.rds') %>%
+  predict(pred_data) %>%
+  round()
 ```
 `PassInt` model:
 ```{r}
-
+passIntPred <- readRDS('./Models/intModel.rds') %>%
+  predict(pred_data) %>%
+  round()
 ```
 `FL` model (pass):
 ```{r}
-
+FLPred <- readRDS('./Models/flModel.rds') %>%
+  predict(pred_data) %>%
+  round()
 ```
 `RushYds` model:
 ```{r}
@@ -61,19 +69,19 @@ recPred <- readRDS('./Models/recModel.rds') %>%
 `RecYds` model:
 ```{r}
 recYdsPred <- readRDS('./Models/recYdsModel.rds') %>%
-  predict(recYdsPred) %>%
+  predict(pred_data) %>%
   round()
 ```
 `RecTD` model:
 ```{r}
 recTDPred <- readRDS('./Models/recTDModel.rds') %>%
-  predict(recYdsPred) %>%
+  predict(pred_data) %>%
   round()
 ```
 `FL` model (receiving):
 ```{r}
 FLPred <- readRDS('./Models/FLModel.rds') %>%
-  predict(FLPred) %>%
+  predict(pred_data) %>%
   round()
 ```
 
