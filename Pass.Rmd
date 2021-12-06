@@ -7,7 +7,6 @@ output: pdf_document
 
 ```{r}
 library(tidyverse)
-library(dlookr)
 library(ISLR)
 library(glmnet)
 library(ggplot2)
@@ -15,6 +14,8 @@ library(boot)
 library(pls)
 library(factoextra)
 library(tree)
+library(MASS)
+library(randomForest)
 ```
 
 # Linear Regression
@@ -23,8 +24,9 @@ library(tree)
 set.seed(445)
 pass_data = read_csv('./Data/masterDF[2018-2020].csv')
 
+pass_data = pass_data %>%
+  dplyr::select(-1)
 
-pass_data <- pass_data %>% select(-'...1')
 
 pass_data <- pass_data[, c(1:12, 23:25, 28, 32:33, 35:36)]
 
@@ -512,13 +514,72 @@ tree_results$MSE[which(tree_results$Model == "FL")] <- flMSE
 tree_results
 ```
 
+Bagging as PassYds as a response
+
+```{r}
+for(k in 1:K) {
+  trn = train_data[folds != k,]
+  vld = train_data[folds == k,]
+
+ bag_fit = randomForest(PassYds ~ . - PassTD - PassInt - FL, data = trn, mtry = ncol(trn)-4, importance = TRUE)
+}
+pydsMSE = round(mean(bag_fit$mse),3)
+pydsMSE
+```
+
+Bagging as PassInt as a response
+
+```{r}
+for(k in 1:K) {
+  trn = train_data[folds != k,]
+  vld = train_data[folds == k,]
+
+ bag_fit = randomForest(PassInt ~ . - PassTD - PassYds - FL, data = trn, mtry = ncol(trn)-4, importance = TRUE)
+}
+pintMSE = round(mean(bag_fit$mse),3)
+pintMSE
+```
+
+Bagging as PassTD as a response
+
+```{r}
+for(k in 1:K) {
+  trn = train_data[folds != k,]
+  vld = train_data[folds == k,]
+
+ bag_fit = randomForest(PassTD ~ . - PassYds - PassInt - FL, data = trn, mtry = ncol(trn)-4, importance = TRUE)
+}
+ptdMSE = round(mean(bag_fit$mse),3)
+ptdMSE
+```
+
+Bagging as FL as a response
+
+```{r, warning=FALSE}
+for(k in 1:K) {
+  trn = train_data[folds != k,]
+  vld = train_data[folds == k,]
+
+ bag_fit = randomForest(FL ~ . - PassYds - PassInt - PassTD, data = trn, mtry = ncol(trn)-4, importance = TRUE)
+}
+flMSE = round(mean(bag_fit$mse),3)
+flMSE
+
+bagging_results = data.frame(Model = c('PassYds', 'PassInt', 'PassTD', 'FL'), MSE = rep(NA,4))
+
+bagging_results$MSE[which(bagging_results$Model == "PassYds")] <- pydsMSE
+bagging_results$MSE[which(bagging_results$Model == "PassInt")] <- pintMSE
+bagging_results$MSE[which(bagging_results$Model == "PassTD")] <- ptdMSE
+bagging_results$MSE[which(bagging_results$Model == "FL")] <- flMSE
+```
 
 ```{r}
 master = data_frame(Model = c("PassYds", "PassInt", "PassTD", "FL"),
                     MLR = mlr_results$MSE,
                     LASSO = lasso_results$MSE,
                     PCR = pcr_results$MSE,
-                    Tree = tree_results$MSE)
+                    Tree = tree_results$MSE,
+                    Bagging = bagging_results$MSE)
 master
 ```
 
@@ -526,7 +587,7 @@ Save Models as .rds files
 
 ```{r}
 # Linear regression will be used for PassYds
-lm(PassYds ~ . - PassTD - PassInt - FL, data = train_data) %>%
+randomForest(PassYds ~ . - PassTD - PassInt - FL, data = train_data, mtry = ncol(train_data)-4, importance = TRUE) %>%
   saveRDS('./Models/passydsModel.rds')
 
 # Linear Regression will be used for PassTD
@@ -538,6 +599,6 @@ lm(FL ~ . - PassTD - PassInt - PassYds, data = train_data) %>%
   saveRDS('./Models/flModel.rds')
 
 # Tree will be used for PassInt
-prune.tree(tree(PassInt ~ . - PassYds - PassTD - FL, trn), best = '12') %>%
+randomForest(PassInt ~ . - PassTD - PassYds - FL, data = train_data, mtry = ncol(train_data)-4, importance = TRUE) %>%
   saveRDS('./Models/intModel.rds')
 ```
