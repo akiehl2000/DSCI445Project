@@ -1030,6 +1030,9 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
                       Boost = boost_results$MSE,
                       Bag = bag_results$MSE,
                       RF = rf_results$MSE); results
+
+results %>%
+  saveRDS('./Tables/recResults.rds')
 ```
 
 Save best models as .rds files.
