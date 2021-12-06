@@ -19,6 +19,7 @@ library(glmnet)
 library(tree)
 library(corrplot)
 library(regclass)
+library(gbm)
 ```
 
 For reproducibility:
@@ -327,7 +328,7 @@ for (k in 1:K) {
   lasso_model <- glmnet(x, y, lambda = exp(-2))
   
   pred_x <- model.matrix(Rec ~ . - RecYds - RecTD - FL, vld)
-  pred <- predict(lasso_model, pred_x)
+  pred <- round(predict(lasso_model, pred_x))
   
   lasso_mse[k] <- mean((vld$Rec - pred)^2)
 }
@@ -359,7 +360,7 @@ for (k in 1:K) {
   lasso_model <- glmnet(x, y, lambda = exp(1))
   
   pred_x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecYAC, vld)
-  pred <- predict(lasso_model, pred_x)
+  pred <- round(predict(lasso_model, pred_x))
   
   lasso_mse[k] <- mean((vld$RecYds - pred)^2)
 }
@@ -392,7 +393,7 @@ for (k in 1:K) {
   lasso_model <- glmnet(x, y, lambda = exp(-5))
   
   pred_x <- model.matrix(RecTD ~ . - Rec - RecYds - FL, vld)
-  pred <- predict(lasso_model, pred_x)
+  pred <- round(predict(lasso_model, pred_x))
   
   lasso_mse[k] <- mean((vld$RecTD - pred)^2)
 }
@@ -424,7 +425,7 @@ for (k in 1:K) {
   lasso_model <- glmnet(x, y, lambda = exp(-3))
   
   pred_x <- model.matrix(FL ~ . - Rec - RecYds - RecTD, vld)
-  pred <- predict(lasso_model, pred_x)
+  pred <- round(predict(lasso_model, pred_x))
   
   lasso_mse[k] <- mean((vld$FL - pred)^2)
 }
@@ -480,7 +481,7 @@ for (pc in results$pc) {
     vld <- pca_train[folds == k, c(1:pc, 16)]
     
     pca_model <- lm(Rec ~ ., data = trn)
-    pred <- predict(pca_model, vld)
+    pred <- round(predict(pca_model, vld))
     mse[k] <- mean((vld$Rec - pred)^2)
   }
   results$mse[which(results$pc == pc)] <- mean(mse)
@@ -491,7 +492,7 @@ ggplot(results) +
   geom_point(aes(7, mse[7]), color = 'red') +
   labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
 
-recMSE <- results$mse[which(results$pc == 7)]
+recMSE <- round(results$mse[which(results$pc == 7)], 3)
 ```
 Principal components regression performed on the `RecYds` variable. 
 ```{r}
@@ -506,7 +507,7 @@ for (pc in results$pc) {
     vld <- pca_train[folds == k, c(1:pc, 16)]
     
     pca_model <- lm(RecYds ~ ., data = trn)
-    pred <- predict(pca_model, vld)
+    pred <- round(predict(pca_model, vld))
     mse[k] <- mean((vld$RecYds - pred)^2)
   }
   results$mse[which(results$pc == pc)] <- mean(mse)
@@ -517,7 +518,7 @@ ggplot(results) +
   geom_point(aes(7, mse[7]), color = 'red') +
   labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
 
-recYdsMSE <- results$mse[which(results$pc == 7)]
+recYdsMSE <- round(results$mse[which(results$pc == 7)], 3)
 ```
 Principal components regression performed on the `RecTD` variable. 
 ```{r}
@@ -532,7 +533,7 @@ for (pc in results$pc) {
     vld <- pca_train[folds == k, c(1:pc, 16)]
     
     pca_model <- lm(RecTD ~ ., data = trn)
-    pred <- predict(pca_model, vld)
+    pred <- round(predict(pca_model, vld))
     mse[k] <- mean((vld$RecTD - pred)^2)
   }
   results$mse[which(results$pc == pc)] <- mean(mse)
@@ -543,7 +544,7 @@ ggplot(results) +
   geom_point(aes(8, mse[8]), color = 'red') +
   labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
 
-recTDMSE <- results$mse[which(results$pc == 8)]
+recTDMSE <- round(results$mse[which(results$pc == 8)], 3)
 ```
 Principal components regression performed on the `FL` variable. 
 ```{r}
@@ -558,7 +559,7 @@ for (pc in results$pc) {
     vld <- pca_train[folds == k, c(1:pc, 16)]
     
     pca_model <- lm(FL ~ ., data = trn)
-    pred <- predict(pca_model, vld)
+    pred <- round(predict(pca_model, vld))
     mse[k] <- mean((vld$FL - pred)^2)
   }
   results$mse[which(results$pc == pc)] <- mean(mse)
@@ -569,7 +570,7 @@ ggplot(results) +
   geom_point(aes(7, mse[7]), color = 'red') +
   labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
 
-FLMSE <- results$mse[which(results$pc == 7)]
+FLMSE <- round(results$mse[which(results$pc == 7)], 3)
 ```
 
 10-fold cross validation PC regression MSEs:
@@ -611,7 +612,7 @@ for (k in 1:K) {
   
   tree_model <- prune.tree(tree(Rec ~ . - RecYds - RecTD - FL, trn), best = '5')
   
-  pred <- predict(tree_model, vld)
+  pred <- round(predict(tree_model, vld))
   
   tree_mse[k] <- mean((vld$Rec - pred)^2)
 }
@@ -643,7 +644,7 @@ for (k in 1:K) {
   
   tree_model <- prune.tree(tree(RecYds ~ . - Rec - RecTD - FL, trn), best = '7')
   
-  pred <- predict(tree_model, vld)
+  pred <- round(predict(tree_model, vld))
   
   tree_mse[k] <- mean((vld$RecYds - pred)^2)
 }
@@ -675,7 +676,7 @@ for (k in 1:K) {
   
   tree_model <- prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, trn), best = '2')
   
-  pred <- predict(tree_model, vld)
+  pred <- round(predict(tree_model, vld))
   
   tree_mse[k] <- mean((vld$RecTD - pred)^2)
 }
@@ -707,7 +708,7 @@ for (k in 1:K) {
   
   tree_model <- prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, trn), best = '2')
   
-  pred <- predict(tree_model, vld)
+  pred <- round(predict(tree_model, vld))
   
   tree_mse[k] <- mean((vld$FL - pred)^2)
 }
@@ -726,6 +727,296 @@ tree_results$MSE[which(tree_results$Model == 'FL')] <- FLMSE
 tree_results
 ```
 
+# Boosting and Bagging
+
+Boosted tree model to predict `Rec` variable.
+```{r, warning=FALSE, message=FALSE}
+results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
+
+for (lambda in results$lambda) {
+  mse <- rep(NA, K)
+  
+  for (k in 1:K) {
+    trn <- train_data[folds != k,]
+    vld <- train_data[folds == k,]
+    
+    model <- gbm(Rec ~ . - RecYds - RecTD - FL, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
+    
+    pred <- round(predict(model, vld))
+    
+    mse[k] <- mean((vld$Rec - pred)^2)
+  }
+  
+  results$MSE[which(results$lambda == lambda)] <- mean(mse)
+}
+
+ggplot(results) +
+  geom_line(aes(lambda, MSE)) +
+  geom_point(aes(.125, results$MSE[which(results$lambda == .125)]), color = 'red') +
+  labs(title='Shrinkage Factor Selection', subtitle='10-fold CV MSE')
+
+recMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
+```
+Boosted tree model to predict `RecYds` variable.
+```{r, warning=FALSE, message=FALSE}
+results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
+
+for (lambda in results$lambda) {
+  mse <- rep(NA, K)
+  
+  for (k in 1:K) {
+    trn <- train_data[folds != k,]
+    vld <- train_data[folds == k,]
+    
+    model <- gbm(RecYds ~ . - Rec - RecTD - FL, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
+    
+    pred <- round(predict(model, vld))
+    
+    mse[k] <- mean((vld$RecYds - pred)^2)
+  }
+  
+  results$MSE[which(results$lambda == lambda)] <- mean(mse)
+}
+
+ggplot(results) +
+  geom_line(aes(lambda, MSE)) +
+  geom_point(aes(.125, results$MSE[which(results$lambda == .125)]), color = 'red') +
+  labs(title='Shrinkage Factor Selection', subtitle='10-fold CV MSE')
+
+recYdsMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
+```
+Boosted tree model to predict `RecTD` variable.
+```{r, warning=FALSE, message=FALSE}
+results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
+
+for (lambda in results$lambda) {
+  mse <- rep(NA, K)
+  
+  for (k in 1:K) {
+    trn <- train_data[folds != k,]
+    vld <- train_data[folds == k,]
+    
+    model <- gbm(RecTD ~ . - Rec - RecYds - FL, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
+    
+    pred <- round(predict(model, vld))
+    
+    mse[k] <- mean((vld$RecTD - pred)^2)
+  }
+  
+  results$MSE[which(results$lambda == lambda)] <- mean(mse)
+}
+
+ggplot(results) +
+  geom_line(aes(lambda, MSE)) +
+  geom_point(aes(.125, results$MSE[which(results$lambda == .125)]), color = 'red') +
+  labs(title='Shrinkage Factor Selection', subtitle='10-fold CV MSE')
+
+recTDMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
+```
+Boosted tree model to predict `FL` variable.
+```{r, warning=FALSE, message=FALSE}
+results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
+
+for (lambda in results$lambda) {
+  mse <- rep(NA, K)
+  
+  for (k in 1:K) {
+    trn <- train_data[folds != k,]
+    vld <- train_data[folds == k,]
+    
+    model <- gbm(FL ~ . - Rec - RecYds - RecTD, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
+    
+    pred <- round(predict(model, vld))
+    
+    mse[k] <- mean((vld$FL - pred)^2)
+  }
+  
+  results$MSE[which(results$lambda == lambda)] <- mean(mse)
+}
+
+ggplot(results) +
+  geom_line(aes(lambda, MSE)) +
+  geom_point(aes(.125, results$MSE[which(results$lambda == .125)]), color = 'red') +
+  labs(title='Shrinkage Factor Selection', subtitle='10-fold CV MSE')
+
+FLMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
+```
+10-fold cross validation boosted tree MSEs:
+```{r}
+boost_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
+
+boost_results$MSE[which(boost_results$Model == 'Rec')] <- recMSE
+boost_results$MSE[which(boost_results$Model == 'RecYds')] <- recYdsMSE
+boost_results$MSE[which(boost_results$Model == 'RecTD')] <- recTDMSE
+boost_results$MSE[which(boost_results$Model == 'FL')] <- FLMSE
+
+boost_results
+```
+
+# Bagging
+
+```{r}
+mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+
+  model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 10)
+
+  pred <- round(predict(model, vld))
+
+  mse[k] <- mean((vld$Rec - pred)^2)
+}
+
+recMSE <- round(mean(mse), 3)
+```
+
+```{r}
+mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+
+  model <- randomForest(RecYds ~ . - Rec - RecTD - FL, data = trn, mtry = 15, ntree = 10)
+
+  pred <- round(predict(model, vld))
+
+  mse[k] <- mean((vld$RecYds - pred)^2)
+}
+
+recYdsMSE <- round(mean(mse), 3)
+```
+
+```{r, warning=FALSE}
+mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+
+  model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 10)
+
+  pred <- round(predict(model, vld))
+
+  mse[k] <- mean((vld$RecTD - pred)^2)
+}
+
+recTDMSE <- round(mean(mse), 3)
+```
+
+```{r, warning=FALSE}
+mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+
+  model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 10)
+
+  pred <- round(predict(model, vld))
+
+  mse[k] <- mean((vld$FL - pred)^2)
+}
+
+FLMSE <- round(mean(mse), 3)
+```
+
+10-fold cross validation bagged tree MSEs:
+```{r}
+bag_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
+
+bag_results$MSE[which(bag_results$Model == 'Rec')] <- recMSE
+bag_results$MSE[which(bag_results$Model == 'RecYds')] <- recYdsMSE
+bag_results$MSE[which(bag_results$Model == 'RecTD')] <- recTDMSE
+bag_results$MSE[which(bag_results$Model == 'FL')] <- FLMSE
+
+bag_results
+```
+
+# Random Forest
+
+```{r}
+mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+
+  model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = trn, mtry = 4, ntree = 10)
+
+  pred <- round(predict(model, vld))
+
+  mse[k] <- mean((vld$Rec - pred)^2)
+}
+
+recMSE <- round(mean(mse), 3)
+```
+
+```{r}
+mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+
+  model <- randomForest(RecYds ~ . - Rec - RecTD - FL, data = trn, mtry = 4, ntree = 10)
+
+  pred <- round(predict(model, vld))
+
+  mse[k] <- mean((vld$RecYds - pred)^2)
+}
+
+recYdsMSE <- round(mean(mse), 3)
+```
+
+```{r, warning=FALSE}
+mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+
+  model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 4, ntree = 10)
+
+  pred <- round(predict(model, vld))
+
+  mse[k] <- mean((vld$RecTD - pred)^2)
+}
+
+recTDMSE <- round(mean(mse), 3)
+```
+
+```{r, warning=FALSE}
+mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+
+  model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = trn, mtry = 4, ntree = 10)
+
+  pred <- round(predict(model, vld))
+
+  mse[k] <- mean((vld$FL - pred)^2)
+}
+
+FLMSE <- round(mean(mse), 3)
+```
+
+10-fold cross validation bagged tree MSEs:
+```{r}
+rf_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
+
+rf_results$MSE[which(rf_results$Model == 'Rec')] <- recMSE
+rf_results$MSE[which(rf_results$Model == 'RecYds')] <- recYdsMSE
+rf_results$MSE[which(rf_results$Model == 'RecTD')] <- recTDMSE
+rf_results$MSE[which(rf_results$Model == 'FL')] <- FLMSE
+
+rf_results
+```
+
 # Results
 
 MSE results using standardized seed-determined 10-fold training cross validation procedure. 
@@ -735,39 +1026,27 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
                       Subset = best_subset_results$MSE,
                       LASSO = lasso_results$MSE,
                       PCR = pcr_results$MSE,
-                      Tree = tree_results$MSE); results
+                      Tree = tree_results$MSE,
+                      Boost = boost_results$MSE,
+                      Bag = bag_results$MSE,
+                      RF = rf_results$MSE); results
 ```
 
 Save best models as .rds files.
-```{r}
-# Best subset selection model chosen for Rec
-lm(Rec ~ Tgt + RecLng + RecYAC + RecDrop + Rat, train_data) %>% 
+```{r, warning=FALSE}
+# Random forest model chosen for Rec
+randomForest(Rec ~ . - RecYds - RecTD - FL, data = train_data, mtry = 4, ntree = 200) %>%
   saveRDS('./Models/recModel.rds')
 
-# Principal components regression model chosen for RecYds
-lm(RecYds ~ ., pca_scores[,1:7] %>% mutate(RecYds = train_data$RecYds)) %>%
+# Bagged tree model chosen for RecYds
+randomForest(RecYds ~ . - Rec - RecTD - FL, data = train_data, mtry = 15, ntree = 200) %>%
   saveRDS('./Models/recYdsModel.rds')
 
-# Tree-based model chosen for RecTD
-prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2') %>%
+# Bagged tree model chosen for RecTD
+randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 100) %>%
   saveRDS('./Models/recTDModel.rds')
 
 # Tree-based model chosen for FL
 prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, train_data), best = '2') %>%
   saveRDS('./Models/recFLModel.rds')
 ```
-
-# Modeling Procedure
-
-- Multiple linear regression
-- Best subset selection
-- LASSO
-- Principal components regression
-- Tree-based model
-
-- Ridge regression?
-- Non-linear regression?
-
-- Predict 'typical games'
-- Test against 2021 fanPts
-
