@@ -1,0 +1,12 @@
+---
+title: "Final Paper"
+author: "Zach Brazil, Richard Charles, and Adam Kiehl"
+date: "12/16/21"
+output: 
+  beamer_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```

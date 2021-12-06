@@ -1,0 +1,38 @@
+---
+title: "Final Presentation"
+author: "Zach Brazil, Richard Charles, and Adam Kiehl"
+date: "12/8/21"
+output: 
+  beamer_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# Introduction
+
+# Data
+
+# Passing Analysis pt. 1
+
+# Passing Analysis pt. 2
+
+# Passing Analysis pt. 3
+
+# Receiving Analysis pt. 1
+
+# Receiving Analysis pt. 2
+
+# Receiving Analysis pt. 3
+
+# Rushing Analysis pt. 1
+
+# Rushing Analysis pt. 2
+
+# Rushing Analysis pt. 3
+
+# Results
+
+# Validation
