@@ -1,0 +1,543 @@
+---
+title: "Passy Boi"
+author: "Zach Brazil"
+date: "11/29/2021"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(dlookr)
+library(ISLR)
+library(glmnet)
+library(ggplot2)
+library(boot)
+library(pls)
+library(factoextra)
+library(tree)
+```
+
+# Linear Regression
+
+```{r}
+set.seed(445)
+pass_data = read_csv('./Data/masterDF[2018-2020].csv')
+
+
+pass_data <- pass_data %>% select(-'...1')
+
+pass_data <- pass_data[, c(1:12, 23:25, 28, 32:33, 35:36)]
+
+train_data <- pass_data[which(pass_data$Cmp > 0 & !is.na(pass_data$FirstDPass & !is.na(pass_data$FirstDPassPer))), -c(1:3)]
+
+for (i in 1:nrow(train_data)) {
+  if (is.na(train_data$FirstDPass[i])) {
+    train_data$FirstDPass[i] <- 0
+  }
+  if (is.na(train_data$FirstDPassPer[i])) {
+    train_data$FirstDPassPer[i] <- 0
+  }
+}
+
+train_data
+```
+## Linear Regression
+
+```{r}
+set.seed(445)
+
+res = data_frame()
+
+k = 10
+n = nrow(train_data)
+folds = sample(seq_len(10),n,replace = TRUE)
+
+for(i in seq_len(k)) {
+  trn = folds != i
+  m0 = lm(PassYds ~ . - PassTD - PassInt - FL, data = train_data[trn,])
+  m1 = lm(PassTD ~ . - PassYds - PassInt - FL, data = train_data[trn,])
+  m2 = lm(PassInt ~ . - PassTD - PassYds - FL, data = train_data[trn,])
+  m3 = lm(FL ~ . - PassTD - PassInt - PassYds, data = train_data[trn,])
+  
+  pred0 = predict(m0, train_data[-trn,])
+  pred1 = predict(m1, train_data[-trn,])
+  pred2 = predict(m2, train_data[-trn,])
+  pred3 = predict(m3, train_data[-trn,])
+  
+  true_passyds = train_data[-trn, ]$PassYds
+  true_passtd = train_data[-trn, ]$PassTD
+  true_passint = train_data[-trn, ]$PassInt
+  true_fl = train_data[-trn, ]$FL
+  
+  data.frame(terms = 2, model = "Pass Yards", true = true_passyds, pred = pred0) %>%
+    bind_rows(data_frame(terms = 3, model = "Pass TD's", true = true_passtd, pred = pred1)) %>%
+    bind_rows(data_frame(terms = 4, model = "Pass Int", true = true_passint, pred = pred2)) %>%
+    bind_rows(data_frame(terms = 5, model = "Fumbles Lost", true = true_fl, pred = pred3)) %>%
+    mutate(mse = (true - pred)^2) %>%
+    group_by(model) %>%
+    summarise(mse = mean(mse)) -> test_mse_k
+  
+  res %>% bind_rows(test_mse_k) -> res
+}
+
+summary(m0)
+mlr_results = res %>%
+  group_by(model) %>%
+  summarise(MSE = mean(mse))
+mlr_results = mlr_results %>%
+  arrange(desc(MSE))
+mlr_results
+```
+
+
+```{r}
+# set.seed(445)
+# 
+# deg = 6
+# cv_error = rep(NA, deg)
+# for(i in 1:deg) {
+#   poly_passyards = glm(PassYds ~ poly(Cmp,i) + poly(PassAtt,i) + poly(Sk,i) + poly(YdsLost,i) + poly(PassLng,i) + poly(Rate,i) + poly(FirstDPass,i) + poly(FirstDPassPer,i) + poly(CAY,i) + poly(YACPerCmp,i) + poly(PassDrops,i) + poly(BadThrow,i) + poly(BadPer,i), data = train_data)
+#   cv_error[i] = cv.glm(PassYds, poly)$delta[1]
+# }
+```
+
+LASSO Regression
+
+```{r}
+K = 10
+x <- model.matrix(PassYds ~ . - PassTD - PassInt - FL, train_data)
+y <- train_data$PassYds
+
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+
+plot(lasso_model)
+
+lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+coef(lasso_model)
+
+lasso_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+   
+  x <- model.matrix(PassYds ~ . - PassTD - PassInt - FL, trn)
+  y <- trn$PassYds
+   
+  lasso_model <- glmnet(x, y, lambda = exp(-2))
+   
+  pred_x <- model.matrix(PassYds ~ . - PassTD - PassInt - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+   
+  lasso_mse[k] <- mean((vld$PassYds - pred)^2)
+}
+
+passydsMSE <- round(mean(lasso_mse), 3)
+passydsMSE
+```
+
+```{r}
+K = 10
+x <- model.matrix(PassTD ~ . - PassYds - PassInt - FL, train_data)
+y <- train_data$PassTD
+
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+
+plot(lasso_model)
+
+lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+coef(lasso_model)
+
+lasso_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+   
+  x <- model.matrix(PassTD ~ . - PassYds - PassInt - FL, trn)
+  y <- trn$PassTD
+   
+  lasso_model <- glmnet(x, y, lambda = exp(-2))
+   
+  pred_x <- model.matrix(PassTD ~ . - PassYds - PassInt - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+   
+  lasso_mse[k] <- mean((vld$PassTD - pred)^2)
+}
+
+passtdMSE <- round(mean(lasso_mse), 3)
+passtdMSE
+```
+
+```{r}
+K = 10
+x <- model.matrix(PassInt ~ . - PassYds - PassTD - FL, train_data)
+y <- train_data$PassInt
+
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+
+plot(lasso_model)
+
+lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+coef(lasso_model)
+
+lasso_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+   
+  x <- model.matrix(PassInt ~ . - PassYds - PassTD - FL, trn)
+  y <- trn$PassInt
+   
+  lasso_model <- glmnet(x, y, lambda = exp(-2))
+   
+  pred_x <- model.matrix(PassInt ~ . - PassYds - PassTD - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+   
+  lasso_mse[k] <- mean((vld$PassInt - pred)^2)
+}
+
+passintMSE <- round(mean(lasso_mse), 3)
+passintMSE
+```
+
+```{r}
+K = 10
+x <- model.matrix(FL ~ . - PassYds - PassTD - PassInt, train_data)
+y <- train_data$FL
+
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+
+plot(lasso_model)
+
+lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+coef(lasso_model)
+
+lasso_mse <- rep(NA, K)
+
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+   
+  x <- model.matrix(FL ~ . - PassYds - PassTD - PassInt, trn)
+  y <- trn$FL
+   
+  lasso_model <- glmnet(x, y, lambda = exp(-2))
+   
+  pred_x <- model.matrix(FL ~ . - PassYds - PassTD - PassInt, vld)
+  pred <- predict(lasso_model, pred_x)
+   
+  lasso_mse[k] <- mean((vld$FL - pred)^2)
+}
+
+passflMSE <- round(mean(lasso_mse), 3)
+passflMSE
+
+lasso_results = data.frame(Model = c("PassYds", "PassInt", "PassTD", "FL"), MSE = rep(NA,4))
+
+lasso_results$MSE[which(lasso_results$Model == 'FL')] <- passflMSE
+lasso_results$MSE[which(lasso_results$Model == 'PassInt')] <- passintMSE
+lasso_results$MSE[which(lasso_results$Model == 'PassTD')] <- passtdMSE
+lasso_results$MSE[which(lasso_results$Model == 'PassYds')] <- passydsMSE
+
+
+
+lasso_results
+```
+
+
+PCA
+
+Pass Yards
+
+```{r}
+pca_model = prcomp(train_data[, -c(3:5,10)], center = TRUE, scale = TRUE)
+summary(pca_model)
+
+fviz_eig(pca_model)
+
+pca_scores = data.frame(pca_model$x)
+data.frame(pca_model$rotation[, 1:3])
+
+biplot(pca_model)
+
+## Principal Components Regression
+pca_train = pca_scores %>%
+  mutate(PassYds = train_data$PassYds)
+results = data.frame(pc = 1:13, mse = rep(NA, 13))
+
+for(pc in results$pc) {
+  mse = rep(NA, K)
+  for(k in 1:K) {
+    trn = pca_train[folds != k, c(1:pc, 14)]
+    vld = pca_train[folds == k, c(1:pc, 14)]
+    
+    pca_model = lm(PassYds ~ ., data = trn)
+    pred = predict(pca_model, vld)
+    mse[k] = mean((vld$PassYds - pred)^2)
+  }
+  results$mse[which(results$pc == pc)] <- mean(mse)
+}
+
+pcapassydsMSE = results$mse[which(results$pc == 3)]
+pcapassydsMSE
+
+pca_train = pca_scores %>%
+  mutate(PassInt = train_data$PassInt)
+results = data.frame(pc = 1:13, mse = rep(NA, 13))
+
+for(pc in results$pc) {
+  mse = rep(NA, K)
+  for(k in 1:K) {
+    trn = pca_train[folds != k, c(1:pc, 14)]
+    vld = pca_train[folds == k, c(1:pc, 14)]
+    
+    pca_model = lm(PassInt ~ ., data = trn)
+    pred = predict(pca_model, vld)
+    mse[k] = mean((vld$PassInt - pred)^2)
+  }
+  results$mse[which(results$pc == pc)] <- mean(mse)
+}
+
+pcapassintMSE = results$mse[which(results$pc == 3)]
+pcapassintMSE
+
+pca_train = pca_scores %>%
+  mutate(PassTD = train_data$PassTD)
+results = data.frame(pc = 1:13, mse = rep(NA, 13))
+
+for(pc in results$pc) {
+  mse = rep(NA, K)
+  for(k in 1:K) {
+    trn = pca_train[folds != k, c(1:pc, 14)]
+    vld = pca_train[folds == k, c(1:pc, 14)]
+    
+    pca_model = lm(PassTD ~ ., data = trn)
+    pred = predict(pca_model, vld)
+    mse[k] = mean((vld$PassTD - pred)^2)
+  }
+  results$mse[which(results$pc == pc)] <- mean(mse)
+}
+
+pcapasstdMSE = results$mse[which(results$pc == 3)]
+pcapasstdMSE
+
+
+pca_train = pca_scores %>%
+  mutate(FL = train_data$FL)
+results = data.frame(pc = 1:13, mse = rep(NA, 13))
+
+for(pc in results$pc) {
+  mse = rep(NA, K)
+  for(k in 1:K) {
+    trn = pca_train[folds != k, c(1:pc, 14)]
+    vld = pca_train[folds == k, c(1:pc, 14)]
+    
+    pca_model = lm(FL ~ ., data = trn)
+    pred = predict(pca_model, vld)
+    mse[k] = mean((vld$FL - pred)^2)
+  }
+  results$mse[which(results$pc == pc)] <- mean(mse)
+}
+
+pcaflMSE = results$mse[which(results$pc == 3)]
+pcaflMSE
+
+pcr_results = data.frame(Model = c("PassYds", "PassInt", "PassTD", "FL"), MSE = rep(NA,4))
+
+pcr_results$MSE[which(pcr_results$Model == "PassYds")] <- pcapassydsMSE
+pcr_results$MSE[which(pcr_results$Model == "PassInt")] <- pcapassintMSE
+pcr_results$MSE[which(pcr_results$Model == "PassTD")] <- pcapasstdMSE
+pcr_results$MSE[which(pcr_results$Model == "FL")] <- pcaflMSE
+
+pcr_results
+```
+Tree
+
+Tree model with PassYds as response
+
+```{r}
+tree_passyds = tree(PassYds ~ . - PassTD - PassInt - FL, train_data)
+cv_tree = cv.tree(tree_passyds)
+
+cv_tree
+
+ggplot() + 
+  geom_line(aes(cv_tree$size, cv_tree$dev)) +
+  geom_point(aes(8, cv_tree$dev[which(cv_tree$size == 8)]), color = "red") +
+  scale_x_discrete(limits = factor(1:10)) +
+  labs(title = "CV Decision Tree Deviance", x = "Terminal Node", y = "Error")
+
+tree_passyds = prune.tree(tree_passyds, best = '8')
+summary(tree_passyds)
+
+plot(tree_passyds)
+text(tree_passyds)
+
+tree_mse = rep(NA,K)
+
+for(k in 1:K) {
+  trn = train_data[folds != k,]
+  vld = train_data[folds == k,]
+  
+  tree_passyds = prune.tree(tree(PassYds ~ . - PassTD - PassInt - FL, trn), best = '8')
+  
+  pred = predict(tree_passyds, vld)
+  
+  tree_mse[k] = mean((vld$PassYds - pred)^2)
+}
+
+ydsMSE = round(mean(tree_mse), 3)
+ydsMSE
+```
+
+Tree Model with PassTD as response
+
+```{r}
+tree_model = tree(PassTD ~ . - PassYds - PassInt - FL, train_data)
+cv_tree = cv.tree(tree_model)
+
+cv_tree
+
+ggplot() + 
+  geom_line(aes(cv_tree$size, cv_tree$dev)) +
+  geom_point(aes(9, cv_tree$dev[which(cv_tree$size == 9)]), color = "red") +
+  scale_x_discrete(limits = factor(1:10)) +
+  labs(title = "CV Decision Tree Deviance", x = "Terminal Node", y = "Error")
+
+tree_model = prune.tree(tree_model, best = '9')
+summary(tree_model)
+
+plot(tree_model)
+text(tree_model)
+
+tree_mse = rep(NA,K)
+
+for(k in 1:K) {
+  trn = train_data[folds != k,]
+  vld = train_data[folds == k,]
+  
+  tree_model = prune.tree(tree(PassTD ~ . - PassYds - PassInt - FL, trn), best = '9')
+  
+  pred = predict(tree_model, vld)
+  
+  tree_mse[k] = mean((vld$PassTD - pred)^2)
+}
+
+tdMSE = round(mean(tree_mse), 3)
+tdMSE
+```
+
+Tree Model with PassInt as response
+
+```{r}
+tree_model = tree(PassInt ~ . - PassYds - PassTD - FL, train_data)
+cv_tree = cv.tree(tree_model)
+
+cv_tree
+
+ggplot() + 
+  geom_line(aes(cv_tree$size, cv_tree$dev)) +
+  geom_point(aes(12, cv_tree$dev[which(cv_tree$size == 12)]), color = "red") +
+  scale_x_discrete(limits = factor(1:12)) +
+  labs(title = "CV Decision Tree Deviance", x = "Terminal Node", y = "Error")
+
+tree_model = prune.tree(tree_model, best = '12')
+summary(tree_model)
+
+plot(tree_model)
+text(tree_model)
+
+tree_mse = rep(NA,K)
+
+for(k in 1:K) {
+  trn = train_data[folds != k,]
+  vld = train_data[folds == k,]
+  
+  tree_model = prune.tree(tree(PassInt ~ . - PassYds - PassTD - FL, trn), best = '12')
+  
+  pred = predict(tree_model, vld)
+  
+  tree_mse[k] = mean((vld$PassInt - pred)^2)
+}
+
+intMSE = round(mean(tree_mse), 3)
+intMSE
+```
+
+Tree Model with FL as response
+
+```{r}
+tree_model = tree(FL ~ . - PassYds - PassInt - PassTD, train_data)
+cv_tree = cv.tree(tree_model)
+
+cv_tree
+
+ggplot() + 
+  geom_line(aes(cv_tree$size, cv_tree$dev)) +
+  geom_point(aes(5, cv_tree$dev[which(cv_tree$size == 5)]), color = "red") +
+  scale_x_discrete(limits = factor(1:10)) +
+  labs(title = "CV Decision Tree Deviance", x = "Terminal Node", y = "Error")
+
+tree_model = prune.tree(tree_model, best = '5')
+summary(tree_model)
+
+plot(tree_model)
+text(tree_model)
+
+tree_mse = rep(NA,K)
+
+for(k in 1:K) {
+  trn = train_data[folds != k,]
+  vld = train_data[folds == k,]
+  
+  tree_model = prune.tree(tree(FL ~ . - PassYds - PassInt - PassTD, trn), best = '5')
+  
+  pred = predict(tree_model, vld)
+  
+  tree_mse[k] = mean((vld$FL - pred)^2)
+}
+
+flMSE = round(mean(tree_mse), 3)
+flMSE
+
+tree_results = data.frame(Model = c('PassYds', 'PassInt', 'PassTD', 'FL'), MSE = rep(NA,4))
+
+tree_results$MSE[which(tree_results$Model == "PassYds")] <- ydsMSE
+tree_results$MSE[which(tree_results$Model == "PassInt")] <- intMSE
+tree_results$MSE[which(tree_results$Model == "PassTD")] <- tdMSE
+tree_results$MSE[which(tree_results$Model == "FL")] <- flMSE
+
+tree_results
+```
+
+
+```{r}
+master = data_frame(Model = c("PassYds", "PassInt", "PassTD", "FL"),
+                    MLR = mlr_results$MSE,
+                    LASSO = lasso_results$MSE,
+                    PCR = pcr_results$MSE,
+                    Tree = tree_results$MSE)
+master
+```
+
+Save Models as .rds files
+
+```{r}
+# Linear regression will be used for PassYds
+lm(PassYds ~ . - PassTD - PassInt - FL, data = train_data) %>%
+  saveRDS('./Models/passydsModel.rds')
+
+# Linear Regression will be used for PassTD
+lm(PassTD ~ . - PassYds - PassInt - FL, data = train_data) %>%
+  saveRDS('./Models/passtdModel.rds')
+
+# Linear Regression will be used for FL
+lm(FL ~ . - PassTD - PassInt - PassYds, data = train_data) %>%
+  saveRDS('./Models/flModel.rds')
+
+# Tree will be used for PassInt
+prune.tree(tree(PassInt ~ . - PassYds - PassTD - FL, trn), best = '12') %>%
+  saveRDS('./Models/intModel.rds')
+```
