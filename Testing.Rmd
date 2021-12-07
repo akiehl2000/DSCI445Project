@@ -179,3 +179,35 @@ predictions %>%
   head(10)
 ```
 
+```{r}
+pos <- rep(NA, nrow(predictions))
+
+for (i in 1:nrow(predictions)) {
+  pass <- predictions$PassYds[i]
+  rush <- predictions$RushYds[i]
+  rec <- predictions$RecYds[i]
+  
+  if (pass > rush & pass > rec) {
+    pos[i] <- 'QB'
+  }
+  
+  else if (rush > pass & rush > rec) {
+    pos[i] <- 'RB'
+  }
+  
+  else if (rec > pass & rec > rush) {
+    pos[i] <- 'WR'
+  }
+  
+  else {
+    pos[i] <- 'UNK'
+  }
+}
+
+predictions %>%
+  mutate(Pos = pos) %>%
+  filter(Pos != 'UNK') %>%
+  group_by(Pos) %>%
+  summarize(mean(sqrt(MSE)))
+```
+
