@@ -11,7 +11,7 @@ library(knitr)
 
 Read in the data:
 ```{r}
-fileName <- 'averages.csv'
+fileName <- './Data/averages.csv'
 pred_data <- read_csv(fileName)
 
 fileName <- './Data/masterDF[2021-2021].csv'
@@ -61,7 +61,7 @@ rushYdsPred <- readRDS('./Models/rushYdsModel.rds') %>%
 ```
 `RushTD` model:
 ```{r}
-rushTDPres <- readRDS('./Models/rushTDModel.rds') %>%
+rushTDPred <- readRDS('./Models/rushTDModel.rds') %>%
   predict(pred_data) %>%
   round()
 ```
@@ -96,18 +96,20 @@ FLPred <- readRDS('./Models/FLModel.rds') %>%
 
 Collect stat predictions and weight according to fantasy values:
 ```{r}
-predictions <- data.frame(Player = averages$Player,
+predictions <- data.frame(Player = pred_data$Player,
                           PassYds = passYdsPred,
                           PassTD = passTDPred,
-                          passInt = passIntPred,
+                          PassInt = passIntPred,
                           RushYds = rushYdsPred,
                           RushTD = rushTDPred,
                           Rec = recPred,
                           RecYds = recYdsPred,
                           RecTD = recTDPred,
                           FL = FLPred)
-predictions <- predictions %>% 
-  mutate(fanPts = as.vector(as.matrix(predictions[, weights$stat]) %*% weights$pts))
+
+predictions[is.na(predictions)] <- 0
+predictions <- predictions %>%
+  mutate(fanPts = as.vector(as.matrix(predictions %>% select(weights$Stat)) %*% weights$Pts))
 ```
 
 ```{r}
@@ -116,10 +118,64 @@ player_mse <- rep(NA, nrow(predictions))
 for (i in 1:nrow(predictions)) {
   player <- predictions$Player[i]
   games <- test_data[which(test_data$Player == player),]
-  player_mse[i] <- mean((predictions$fanPts - games$fanPts)^2)
+  typical <- predictions$fanPts[which(predictions$Player == player)]
+  player_mse[i] <- mean((typical - games$fanPts)^2)
 }
 
+predictions <- predictions %>%
+  mutate(MSE = player_mse) %>%
+  filter(!is.nan(MSE))
+
+plt <- ggplot(predictions) +
+  geom_histogram(aes(sqrt(MSE)), binwidth = .5) + 
+  labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
+       y = 'Count')
+
+plt %>%
+  saveRDS('./Plots/histMSE.rds')
+
+plt
+```
+
+```{r}
+mse_results <- data.frame(Stat = c(weights$Stat, 'fanPts'), MSE = rep(NA, length(weights$Stat) + 1))
+
+for (stat in mse_results$Stat) {
+  player_mse <- rep(NA, nrow(predictions)) 
+  
+  for (i in 1:nrow(predictions)) {
+    player <- predictions$Player[i]
+    games <- test_data[which(test_data$Player == player),]
+    typical <- predictions[which(predictions$Player == player),] %>%
+      select(stat) %>%
+      as.numeric()
+    valid <- games %>%
+      select(stat) %>%
+      as.vector()
+    player_mse[i] <- mean(unlist((typical - valid)^2))
+  }
+  
+  mse_results$MSE[which(mse_results$Stat == stat)] <- round(mean(player_mse), 2)
+}
+
+mse_results %>%
+  saveRDS('./Tables/MSE.rds')
+
+mse_results
+```
+
+```{r}
 predictions %>%
-  mutate(mse = player_mse)
+  arrange(desc(fanPts)) %>%
+  saveRDS('./Tables/predFull')
+
+predictions %>%
+  arrange(desc(fanPts)) %>%
+  head(11) %>%
+  saveRDS('./Tables/predPartial')
+
+predictions %>%
+  arrange(desc(fanPts)) %>%
+  head(10)
 ```
 
