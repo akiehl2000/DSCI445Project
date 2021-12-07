@@ -24,19 +24,20 @@ Models that were used:
   - Tree
   - Bagging
 
+Predictors: `Cmp`, `PassAtt`, `Sk`, `YdsLost`, `PassLng`, `Rate`, `FirstDPass`, `FirstDPassPer`, `CAY`, `YACPerCmp`, `PassDrops`, `BadThrow`, `BadPer`
+
+Dropped `PassYAC` (multicollinearity)
+
 # Passing Analysis pt. 2
 
 ```{r}
 par(mfrow = c(2,2))
 
 #Plot 1: Scree Plot
-fviz_eig(pca_model)
+readRDS('../Plots/pcplot.rds')
 
 #Plot 2: PassYds as Response
-tree_passyds = tree(PassYds ~ . - PassTD - PassInt - FL, train_data)
-cv_tree = cv.tree(tree_passyds)
-plot(tree_passyds)
-text(tree_passyds)
+readRDS('../Plots/passydstree.rds')
 
 
 # Plot 3: PassInt as Response
@@ -62,7 +63,7 @@ text(tree_model)
 # Passing Analysis pt. 3
 
 ```{r}
-master
+readRDS('../Tables/master.rds')
 ```
 
 # Receiving Analysis pt. 1
