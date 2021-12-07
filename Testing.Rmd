@@ -6,6 +6,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(knitr)
 ```
 
 Read in the data:
@@ -20,8 +21,12 @@ test_data <- read_csv(fileName) %>%
 
 Build weights table:
 ```{r}
-weights <- data.frame(stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushTD', 'Rec', 'RecYds', 'RecTD', 'FL'),
-                       pts = c(.04, 4, -1, .1, 6, 1, .1, 6, -2))
+weights <- data.frame(Stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushTD', 'Rec', 'RecYds', 'RecTD', 'FL'),
+                       Pts = c(.04, 4, -1, .1, 6, 1, .1, 6, -2))
+
+weights %>% 
+  kable() %>%
+  write_rds('./Tables/fanPts.rds')
 ```
 
 `PassYds` model:
@@ -50,15 +55,19 @@ FLPred <- readRDS('./Models/flModel.rds') %>%
 ```
 `RushYds` model:
 ```{r}
-
+rushYdsPred <- readRDS('./Models/rushYdsModel.rds') %>%
+  predict(pred_data) %>%
+  round()
 ```
 `RushTD` model:
 ```{r}
-
+rushTDPres <- readRDS('./Models/rushTDModel.rds') %>%
+  predict(pred_data) %>%
+  round()
 ```
 `FL` model (rush):
 ```{r}
-
+FLPred <- readRDS('./Models/rushFLModel.rds')
 ```
 `Rec` model:
 ```{r}
