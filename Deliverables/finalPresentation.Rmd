@@ -1,0 +1,83 @@
+---
+title: "Final Presentation"
+author: "Zach Brazil, Richard Charles, and Adam Kiehl"
+date: "12/8/21"
+output: 
+  beamer_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# Introduction
+
+# Data
+
+# Passing Analysis pt. 1
+
+Models that were used:
+  - Multiple Linear Regression (MLR)
+  - LASSO
+  - Principal Component Analysis/Regression
+  - Tree
+  - Bagging
+
+# Passing Analysis pt. 2
+
+```{r}
+par(mfrow = c(2,2))
+
+#Plot 1: Scree Plot
+fviz_eig(pca_model)
+
+
+#Plot 2: PassYds as Response
+tree_passyds = tree(PassYds ~ . - PassTD - PassInt - FL, train_data)
+cv_tree = cv.tree(tree_passyds)
+plot(tree_passyds)
+text(tree_passyds)
+
+
+# Plot 3: PassInt as Response
+tree_model = tree(PassInt ~ . - PassYds - PassTD - FL, train_data)
+cv_tree = cv.tree(tree_model)
+tree_model = prune.tree(tree_model, best = '12')
+plot(tree_model)
+text(tree_model)
+
+# Plot 4: PassTD as Response
+tree_model = tree(PassTD ~ . - PassYds - PassInt - FL, train_data)
+cv_tree = cv.tree(tree_model)
+plot(tree_model)
+text(tree_model)
+
+# Plot 5: FL as Response
+tree_model = tree(FL ~ . - PassYds - PassInt - PassTD, train_data)
+cv_tree = cv.tree(tree_model)
+plot(tree_model)
+text(tree_model)
+```
+
+# Passing Analysis pt. 3
+
+```{r}
+master
+```
+
+# Receiving Analysis pt. 1
+
+# Receiving Analysis pt. 2
+
+# Receiving Analysis pt. 3
+
+# Rushing Analysis pt. 1
+
+# Rushing Analysis pt. 2
+
+# Rushing Analysis pt. 3
+
+# Results
+
+# Validation
