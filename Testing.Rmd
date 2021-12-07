@@ -1,0 +1,125 @@
+---
+title: "Testing Script"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(knitr)
+```
+
+Read in the data:
+```{r}
+fileName <- 'averages.csv'
+pred_data <- read_csv(fileName)
+
+fileName <- './Data/masterDF[2021-2021].csv'
+test_data <- read_csv(fileName) %>%
+  select(-'...1')
+```
+
+Build weights table:
+```{r}
+weights <- data.frame(Stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushTD', 'Rec', 'RecYds', 'RecTD', 'FL'),
+                       Pts = c(.04, 4, -1, .1, 6, 1, .1, 6, -2))
+
+weights %>% 
+  kable() %>%
+  write_rds('./Tables/fanPts.rds')
+```
+
+`PassYds` model:
+```{r}
+passYdsPred <- readRDS('./Models/passydsModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`PassTD` model:
+```{r}
+passTDPred <- readRDS('./Models/passtdModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`PassInt` model:
+```{r}
+passIntPred <- readRDS('./Models/intModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`FL` model (pass):
+```{r}
+FLPred <- readRDS('./Models/flModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`RushYds` model:
+```{r}
+rushYdsPred <- readRDS('./Models/rushYdsModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`RushTD` model:
+```{r}
+rushTDPres <- readRDS('./Models/rushTDModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`FL` model (rush):
+```{r}
+FLPred <- readRDS('./Models/rushFLModel.rds')
+```
+`Rec` model:
+```{r}
+recPred <- readRDS('./Models/recModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`RecYds` model:
+```{r}
+recYdsPred <- readRDS('./Models/recYdsModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`RecTD` model:
+```{r}
+recTDPred <- readRDS('./Models/recTDModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+`FL` model (receiving):
+```{r}
+FLPred <- readRDS('./Models/FLModel.rds') %>%
+  predict(pred_data) %>%
+  round()
+```
+
+Collect stat predictions and weight according to fantasy values:
+```{r}
+predictions <- data.frame(Player = averages$Player,
+                          PassYds = passYdsPred,
+                          PassTD = passTDPred,
+                          passInt = passIntPred,
+                          RushYds = rushYdsPred,
+                          RushTD = rushTDPred,
+                          Rec = recPred,
+                          RecYds = recYdsPred,
+                          RecTD = recTDPred,
+                          FL = FLPred)
+predictions <- predictions %>% 
+  mutate(fanPts = as.vector(as.matrix(predictions[, weights$stat]) %*% weights$pts))
+```
+
+```{r}
+player_mse <- rep(NA, nrow(predictions))
+
+for (i in 1:nrow(predictions)) {
+  player <- predictions$Player[i]
+  games <- test_data[which(test_data$Player == player),]
+  player_mse[i] <- mean((predictions$fanPts - games$fanPts)^2)
+}
+
+predictions %>%
+  mutate(mse = player_mse)
+```
+
