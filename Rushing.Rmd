@@ -1,0 +1,536 @@
+---
+title: "Rushing"
+author: "Richard Charles"
+date: "11/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(GGally)
+library(stats)
+library(factoextra)
+library(sail)
+library(caret)
+library(leaps)
+library(glmnet)
+library(tree)
+library(gbm)
+library(randomForest)
+```
+
+```{r}
+set.seed(445)
+master <- read.csv('./Data/masterDF[2018-2020].csv')
+rush_data <- master[, c(14:17, 24:24, 45:46)]
+head(rush_data)
+```
+
+```{r}
+train_data <- rush_data[which(rush_data$RushYds > 0 & !is.na(rush_data$RushLng)), -c(8:8)]
+N <- nrow(train_data)
+K <- 10
+folds <- sample(1:K, N, replace = TRUE)
+for (i in 1:N) {
+  if (is.na(train_data$FirstDRush[i])) {
+    train_data$FirstDRush[i] <- 0
+  }
+  if (is.na(train_data$RushAtt[i])) {
+    train_data$RushAtt[i] <- 0
+  }
+}
+head(train_data)
+```
+
+```{r}
+ggpairs(train_data[,c(1:6, 7)])
+```
+
+```{r}
+summary(lm(RushAtt ~ . - RushYds - RushTD - RushLng - FL - FirstDRush - RushYBC, data = train_data))
+```
+
+```{r}
+summary(lm(RushYds ~ . - RushAtt - RushTD - RushLng - FL - FirstDRush - RushYBC, data = train_data))
+```
+
+```{r}
+summary(lm(RushTD ~ . - RushYds - RushAtt - RushLng - FL - FirstDRush - RushYBC, data = train_data))
+```
+
+```{r}
+summary(lm(RushLng ~ . - RushYds - RushTD - RushAtt - FL - FirstDRush - RushYBC, data = train_data))
+```
+
+```{r}
+summary(lm(FL ~ . - RushYds - RushTD - RushLng - RushAtt - FirstDRush - RushYBC, data = train_data))
+```
+
+```{r}
+summary(lm(FirstDRush ~ . - RushYds - RushTD - RushLng - FL - RushAtt - RushYBC, data = train_data))
+```
+
+```{r}
+summary(lm(RushYBC ~ . - RushYds - RushTD - RushLng - FL - RushAtt - FirstDRush, data = train_data))
+```
+
+```{r}
+res = data_frame()
+n = nrow(train_data)
+folds = sample(seq_len(10),n,replace = TRUE)
+k <- 10
+for(i in seq_len(k)) {
+  trn = folds != i
+  m0 <- lm(RushAtt ~ . - RushYds - RushTD - RushLng - FL, data = train_data)
+  m1 <- lm(RushYds ~ . - RushAtt - RushTD - RushLng - FL, data = train_data)
+  m2 <- lm(RushTD ~ . - RushYds - RushAtt - RushLng - FL, data = train_data)
+  m3 <- lm(FL ~ . - RushYds - RushTD - RushLng - RushAtt, data = train_data)
+
+  p0 <- predict(m0, train_data[-trn,])
+  p1 <- predict(m1, train_data[-trn,])
+  p2 <- predict(m2, train_data[-trn,])
+  p3 <- predict(m3, train_data[-trn,])
+  
+  true_rushatt = train_data[-trn, ]$RushAtt
+  true_rushyds = train_data[-trn, ]$RushYds
+  true_rushtd = train_data[-trn, ]$RushTD
+  true_fl = train_data[-trn, ]$FL
+  
+  data.frame(terms = 2, model = "aRush Att", true = true_rushatt, pred = p0) %>%
+    bind_rows(data_frame(terms = 3, model = "cRush TD's", true = true_rushtd, pred = p2)) %>%
+    bind_rows(data_frame(terms = 4, model = "bRush Yards", true = true_rushyds, pred = p1)) %>%
+    bind_rows(data_frame(terms = 5, model = "dFumbles Lost", true = true_fl, pred = p3)) %>%
+    mutate(mse = (true - pred)^2) %>%
+    group_by(model) %>%
+    summarise(mse = mean(mse)) -> test_mse_k
+  
+  res %>% bind_rows(test_mse_k) -> res
+}
+
+summary(m0)
+mlr_results = res %>%
+  group_by(model) %>%
+  summarise(MSE = mean(mse))
+mlr_results = mlr_results %>%
+  arrange("Rush Att", "Rush Yards", "Rush TD's", "Fumbles Lost" )
+mlr_results
+```
+
+# LASSO Regression
+
+```{r}
+x <- model.matrix(RushAtt ~ . - RushYds - RushTD - RushLng - FL, data = train_data)
+y <- train_data$RushAtt
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+plot(lasso_model)
+lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+coef(lasso_model)
+lasso_mse <- rep(NA, K)
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  x <- model.matrix(RushAtt ~ . - RushYds - RushTD - RushLng - FL, trn)
+  y <- trn$RushAtt
+  
+  lasso_model <- glmnet(x, y, lambda = exp(-2))
+  
+  pred_x <- model.matrix(RushAtt ~ . - RushYds - RushTD - RushLng - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+  
+  lasso_mse[k] <- mean((vld$RushAtt - pred)^2)
+}
+recMSE <- round(mean(lasso_mse), 3)
+```
+
+```{r}
+x <- model.matrix(RushYds ~ . - RushAtt - RushTD - RushLng - FL, data = train_data)
+y <- train_data$RushYds
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+plot(lasso_model)
+lasso_model <- glmnet(x, y, lambda = exp(1)); lasso_model
+coef(lasso_model)
+lasso_mse <- rep(NA, K)
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  x <- model.matrix(RushYds ~ . - RushAtt - RushTD - RushLng - FL, trn)
+  y <- trn$RushYds
+  
+  lasso_model <- glmnet(x, y, lambda = exp(1))
+  
+  pred_x <- model.matrix(RushYds ~ . - RushAtt - RushTD - RushLng - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+  
+  lasso_mse[k] <- mean((vld$RushYds - pred)^2)
+}
+recYdsMSE <- round(mean(lasso_mse), 3)
+```
+
+
+```{r}
+x <- model.matrix(RushTD ~ . - RushYds - RushAtt - RushLng - FL, data = train_data)
+y <- train_data$RushTD
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+plot(lasso_model)
+lambda <- exp
+lasso_model <- glmnet(x, y, lambda = exp(-5)); lasso_model
+coef(lasso_model)
+lasso_mse <- rep(NA, K)
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  x <- model.matrix(RushTD ~ . - RushYds - RushAtt - RushLng - FL, trn)
+  y <- trn$RushTD
+  
+  lasso_model <- glmnet(x, y, lambda = exp(-5))
+  
+  pred_x <- model.matrix(RushTD ~ . - RushYds - RushAtt - RushLng - FL, vld)
+  pred <- predict(lasso_model, pred_x)
+  
+  lasso_mse[k] <- mean((vld$RushTD - pred)^2)
+}
+recTDMSE <- round(mean(lasso_mse), 3)
+```
+
+
+```{r}
+x <- model.matrix(FL ~ . - RushYds - RushTD - RushLng - RushAtt, train_data)
+y <- train_data$FL
+lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+plot(lasso_model)
+lasso_model <- glmnet(x, y, lambda = exp(-3)); lasso_model
+coef(lasso_model)
+lasso_mse <- rep(NA, K)
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  
+  x <- model.matrix(FL ~ . - RushYds - RushTD - RushLng - RushAtt, trn)
+  y <- trn$FL
+  
+  lasso_model <- glmnet(x, y, lambda = exp(-3))
+  
+  pred_x <- model.matrix(FL ~ . - RushYds - RushTD - RushLng - RushAtt, vld)
+  pred <- predict(lasso_model, pred_x)
+  
+  lasso_mse[k] <- mean((vld$FL - pred)^2)
+}
+FLMSE <- round(mean(lasso_mse), 3)
+```
+
+10-fold cross validation LASSO regression MSEs:
+```{r}
+lasso_results <- data.frame(Model = c('RushAtt', 'RushYds', 'RushTD', 'FL'), MSE = rep(NA, 4))
+lasso_results$MSE[which(lasso_results$Model == 'RushAtt')] <- recMSE
+lasso_results$MSE[which(lasso_results$Model == 'RushYds')] <- recYdsMSE
+lasso_results$MSE[which(lasso_results$Model == 'RushTD')] <- recTDMSE
+lasso_results$MSE[which(lasso_results$Model == 'FL')] <- FLMSE
+lasso_results
+```
+
+PCR
+
+```{r}
+pca_model <- prcomp(train_data[,c(1:3, 5)], center = TRUE, scale = TRUE)
+summary(pca_model)
+```
+Percentage of total variance explained by each principal component. 
+```{r}
+fviz_eig(pca_model)
+```
+Principal component loading matrix. 
+```{r}
+pca_scores <- data.frame(pca_model$x)
+data.frame(pca_model$rotation[, 1:4])
+```
+Principal component biplot for PC1 and PC2.
+```{r}
+biplot(pca_model)
+```
+
+Principal components regression performed on the `RushAtt` variable. 
+```{r}
+pca_train <- pca_scores %>%
+  mutate(RushAtt = train_data$RushAtt)
+results <- data.frame(pc = 1:5, mse = rep(NA, 5))
+for (pc in results$pc) {
+  mse <- rep(NA, K)
+  for (k in 1:K) {
+    trn <- pca_train[folds != k, c(1:pc, 5)]
+    vld <- pca_train[folds == k, c(1:pc, 5)]
+    
+    pca_model <- lm(RushAtt ~ ., data = trn)
+    pred <- predict(pca_model, vld)
+    mse[k] <- mean((vld$RushAtt - pred)^2)
+  }
+  results$mse[which(results$pc == pc)] <- mean(mse)
+}
+ggplot(results) +
+  geom_line(aes(pc, mse)) +
+  geom_point(aes(4, mse[4]), color = 'red') +
+  labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
+recMSE <- results$mse[which(results$pc == 4)]
+```
+Principal components regression performed on the `RushYds` variable. 
+```{r}
+pca_train <- pca_scores %>%
+  mutate(RushYds = train_data$RushYds)
+results <- data.frame(pc = 1:5, mse = rep(NA, 5))
+for (pc in results$pc) {
+  mse <- rep(NA, K)
+  for (k in 1:K) {
+    trn <- pca_train[folds != k, c(1:pc, 5)]
+    vld <- pca_train[folds == k, c(1:pc, 5)]
+    
+    pca_model <- lm(RushYds ~ ., data = trn)
+    pred <- predict(pca_model, vld)
+    mse[k] <- mean((vld$RushYds - pred)^2)
+  }
+  results$mse[which(results$pc == pc)] <- mean(mse)
+}
+ggplot(results) +
+  geom_line(aes(pc, mse)) +
+  geom_point(aes(4, mse[4]), color = 'red') +
+  labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
+recYdsMSE <- results$mse[which(results$pc == 4)]
+```
+Principal components regression performed on the `RushTD` variable. 
+```{r}
+pca_train <- pca_scores %>%
+  mutate(RushTD = train_data$RushTD)
+results <- data.frame(pc = 1:5, mse = rep(NA, 5))
+for (pc in results$pc) {
+  mse <- rep(NA, K)
+  for (k in 1:K) {
+    trn <- pca_train[folds != k, c(1:pc, 5)]
+    vld <- pca_train[folds == k, c(1:pc, 5)]
+    
+    pca_model <- lm(RushTD ~ ., data = trn)
+    pred <- predict(pca_model, vld)
+    mse[k] <- mean((vld$RushTD - pred)^2)
+  }
+  results$mse[which(results$pc == pc)] <- mean(mse)
+}
+ggplot(results) +
+  geom_line(aes(pc, mse)) +
+  geom_point(aes(3, mse[3]), color = 'red') +
+  labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
+recTDMSE <- results$mse[which(results$pc == 3)]
+```
+Principal components regression performed on the `FL` variable. 
+```{r}
+pca_train <- pca_scores %>%
+  mutate(FL = train_data$FL)
+results <- data.frame(pc = 1:5, mse = rep(NA, 5))
+for (pc in results$pc) {
+  mse <- rep(NA, K)
+  for (k in 1:K) {
+    trn <- pca_train[folds != k, c(1:pc, 5)]
+    vld <- pca_train[folds == k, c(1:pc, 5)]
+    
+    pca_model <- lm(FL ~ ., data = trn)
+    pred <- predict(pca_model, vld)
+    mse[k] <- mean((vld$FL - pred)^2)
+  }
+  results$mse[which(results$pc == pc)] <- mean(mse)
+}
+ggplot(results) +
+  geom_line(aes(pc, mse)) +
+  geom_point(aes(2, mse[2]), color = 'red') +
+  labs(title='10-Fold Cross Validation MSE', x='Principal Components', y='10-Fold MSE')
+FLMSE <- results$mse[which(results$pc == 2)]
+```
+
+10-fold cross validation PC regression MSEs:
+```{r}
+pcr_results <- data.frame(Model = c('RushAtt', 'RushYds', 'RushTD', 'FL'), MSE = rep(NA, 4))
+pcr_results$MSE[which(pcr_results$Model == 'RushAtt')] <- recMSE
+pcr_results$MSE[which(pcr_results$Model == 'RushYds')] <- recYdsMSE
+pcr_results$MSE[which(pcr_results$Model == 'RushTD')] <- recTDMSE
+pcr_results$MSE[which(pcr_results$Model == 'FL')] <- FLMSE
+pcr_results
+```
+
+```{r, warning=FALSE, message=FALSE}
+results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
+for (lambda in results$lambda) {
+  mse <- rep(NA, K)
+  
+  for (k in 1:K) {
+    trn <- train_data[folds != k,]
+    vld <- train_data[folds == k,]
+    
+    model <- gbm(RushAtt ~ . - RushYds - RushTD - RushLng - FL, distribution = 'gaussian', n.trees = 100, shrinkage = lambda, trn)
+    
+    pred <- round(predict(model, vld))
+    
+    mse[k] <- mean((vld$RushAtt - pred)^2)
+  }
+  
+  results$MSE[which(results$lambda == lambda)] <- mean(mse)
+}
+ggplot(results) +
+  geom_line(aes(lambda, MSE)) +
+  geom_point(aes(.125, results$MSE[which(results$lambda == .125)]), color = 'red') +
+  labs(title='Shrinkage Factor Selection', subtitle='10-fold CV MSE')
+recMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
+```
+Boosted tree model to predict `RushYds` variable.
+```{r, warning=FALSE, message=FALSE}
+results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
+for (lambda in results$lambda) {
+  mse <- rep(NA, K)
+  
+  for (k in 1:K) {
+    trn <- train_data[folds != k,]
+    vld <- train_data[folds == k,]
+    
+    model <- gbm(RushYds ~ . - RushAtt - RushTD - RushLng - FL, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
+    
+    pred <- round(predict(model, vld))
+    
+    mse[k] <- mean((vld$RushYds - pred)^2)
+  }
+  
+  results$MSE[which(results$lambda == lambda)] <- mean(mse)
+}
+ggplot(results) +
+  geom_line(aes(lambda, MSE)) +
+  geom_point(aes(.125, results$MSE[which(results$lambda == .125)]), color = 'red') +
+  labs(title='Shrinkage Factor Selection', subtitle='10-fold CV MSE')
+recYdsMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
+```
+Boosted tree model to predict `RushTD` variable.
+```{r, warning=FALSE, message=FALSE}
+results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
+for (lambda in results$lambda) {
+  mse <- rep(NA, K)
+  
+  for (k in 1:K) {
+    trn <- train_data[folds != k,]
+    vld <- train_data[folds == k,]
+    
+    model <- gbm(RushTD ~ . - RushYds - RushAtt - RushLng - FL, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
+    
+    pred <- round(predict(model, vld))
+    
+    mse[k] <- mean((vld$RushTD - pred)^2)
+  }
+  
+  results$MSE[which(results$lambda == lambda)] <- mean(mse)
+}
+ggplot(results) +
+  geom_line(aes(lambda, MSE)) +
+  geom_point(aes(.125, results$MSE[which(results$lambda == .125)]), color = 'red') +
+  labs(title='Shrinkage Factor Selection', subtitle='10-fold CV MSE')
+recTDMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
+```
+Boosted tree model to predict `FL` variable.
+```{r, warning=FALSE, message=FALSE}
+results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
+for (lambda in results$lambda) {
+  mse <- rep(NA, K)
+  
+  for (k in 1:K) {
+    trn <- train_data[folds != k,]
+    vld <- train_data[folds == k,]
+    
+    model <- gbm(FL ~ . - RushAtt - RushYds - RushTD, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
+    
+    pred <- round(predict(model, vld))
+    
+    mse[k] <- mean((vld$FL - pred)^2)
+  }
+  
+  results$MSE[which(results$lambda == lambda)] <- mean(mse)
+}
+ggplot(results) +
+  geom_line(aes(lambda, MSE)) +
+  geom_point(aes(.125, results$MSE[which(results$lambda == .125)]), color = 'red') +
+  labs(title='Shrinkage Factor Selection', subtitle='10-fold CV MSE')
+FLMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
+```
+10-fold cross validation boosted tree MSEs:
+```{r}
+boost_results <- data.frame(Model = c('RushAtt', 'RushYds', 'RushTD', 'FL'), MSE = rep(NA, 4))
+boost_results$MSE[which(boost_results$Model == 'RushAtt')] <- recMSE
+boost_results$MSE[which(boost_results$Model == 'RushYds')] <- recYdsMSE
+boost_results$MSE[which(boost_results$Model == 'RushTD')] <- recTDMSE
+boost_results$MSE[which(boost_results$Model == 'FL')] <- FLMSE
+boost_results
+```
+
+# Bagging
+
+```{r}
+mse <- rep(NA, K)
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  model <- randomForest(RushAtt ~ . - RushYds - RushTD - FL, data = trn, mtry = 15, ntree = 10)
+  pred <- round(predict(model, vld))
+  mse[k] <- mean((vld$RushAtt - pred)^2)
+}
+recMSE <- round(mean(mse), 3)
+```
+
+```{r}
+mse <- rep(NA, K)
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  model <- randomForest(RushYds ~ . - RushAtt - RushTD - FL, data = trn, mtry = 15, ntree = 10)
+  pred <- round(predict(model, vld))
+  mse[k] <- mean((vld$RushYds - pred)^2)
+}
+recYdsMSE <- round(mean(mse), 3)
+```
+
+```{r, warning=FALSE}
+mse <- rep(NA, K)
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  model <- randomForest(RushTD ~ . - RushAtt - RushYds - FL, data = trn, mtry = 15, ntree = 10)
+  pred <- round(predict(model, vld))
+  mse[k] <- mean((vld$RushTD - pred)^2)
+}
+recTDMSE <- round(mean(mse), 3)
+```
+
+```{r, warning=FALSE}
+mse <- rep(NA, K)
+for (k in 1:K) {
+  trn <- train_data[folds != k,]
+  vld <- train_data[folds == k,]
+  model <- randomForest(FL ~ . - RushAtt - RushYds - RushTD - FL, data = trn, mtry = 15, ntree = 10)
+  pred <- round(predict(model, vld))
+  mse[k] <- mean((vld$FL - pred)^2)
+}
+FLMSE <- round(mean(mse), 3)
+```
+
+10-fold cross validation bagged tree MSEs:
+```{r}
+bag_results <- data.frame(Model = c('RushAtt', 'RushYds', 'RushTD', 'FL'), MSE = rep(NA, 4))
+bag_results$MSE[which(bag_results$Model == 'RushAtt')] <- recMSE
+bag_results$MSE[which(bag_results$Model == 'RushYds')] <- recYdsMSE
+bag_results$MSE[which(bag_results$Model == 'RushTD')] <- recTDMSE
+bag_results$MSE[which(bag_results$Model == 'FL')] <- FLMSE
+bag_results
+```
+
+```{r}
+results <- data.frame(Model = c('RushAtt', 'RushYds', 'RushTD', 'FL'),
+                      MLR = mlr_results$MSE,
+                      LASSO = lasso_results$MSE,
+                      PCR = pcr_results$MSE,
+                      Boost = boost_results$MSE,
+                      Bag = bag_results$MSE); results
+
+```
+
