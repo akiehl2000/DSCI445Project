@@ -32,7 +32,6 @@ par(mfrow = c(2,2))
 #Plot 1: Scree Plot
 fviz_eig(pca_model)
 
-
 #Plot 2: PassYds as Response
 tree_passyds = tree(PassYds ~ . - PassTD - PassInt - FL, train_data)
 cv_tree = cv.tree(tree_passyds)
@@ -68,6 +67,23 @@ master
 
 # Receiving Analysis pt. 1
 
+Predictors: Tgt, RecLng, Fmb, FirstDRec, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT, RecBrkTkl, RecPerBr, RecDrop, DropPerRec, RecInt, Rat
+- Goal of simplicity and predictive accuracy
+- Correlation matrix and VIF scores to identify multicollinearity (`FirstDRec`, `RecYBC`, `YBCPerR`, `YACPerR`, `DropPerRec`)
+- `RecYAC` dropped
+- Dimension reduction techniques
+  - Best Subset -> 3-5 predictors used with `Tgt` and `Rat` appearing most frequently
+  - LASSO -> 5-10 predictors used but didn't perform better than best subset 
+  - PC regression -> 7-8 principal components used (sharp dropoff afterwards); excellent performance for `RecYds`
+  - Pruned trees -> 2 terminal nodes used for `RecTD` and 6-7 otherwise. `Tgt` and `Rat`
+  - Bagging and Random Forest -> 1-5 important variables with excellent predictive performance
+- Rec: Random forest model chosen with `Tgt`, `FirstDRec`, `RecYAC`, `RecYBC`, `Rat` (sandwich)
+PLOT OF VARIABLE IMPROTANCE
+- RecYds: Bagged tree model chosen with `RecYBC` (primarily), `FirstDRec`, `RecLng`, `YACPerR`
+PLOT OF VARIABLE IMPORTANCE
+- RecTD: Bagged tree model chose `Rat` as the only important variable so a regular tree with just `Rat` performed just as well
+PLOT OF TREE
+
 # Receiving Analysis pt. 2
 
 # Receiving Analysis pt. 3
@@ -78,6 +94,15 @@ master
 
 # Rushing Analysis pt. 3
 
+# Fumbles Analysis
+
 # Results
 
 # Validation
+
+# Future Efforts
+
+- Refit Random Forest models with better subset of predictors
+- Injuries
+- Strength of opponent
+- Assuming a Poisson distribution for Rec, TD, Int, FL
