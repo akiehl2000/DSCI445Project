@@ -863,7 +863,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 50)
+  model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 100)
 
   pred <- round(predict(model, vld))
 
@@ -880,7 +880,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = trn, mtry = 14, ntree = 50)
+  model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = trn, mtry = 14, ntree = 100)
 
   pred <- round(predict(model, vld))
 
@@ -897,7 +897,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 50)
+  model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 100)
 
   pred <- round(predict(model, vld))
 
@@ -914,7 +914,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 50)
+  model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 100)
 
   pred <- round(predict(model, vld))
 
@@ -1047,7 +1047,8 @@ data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
   ggplot() +
   geom_col(aes(Var, Purity)) + 
   theme(axis.text.x = element_text(angle = 45)) +
-  labs()
+  labs(title = 'Variable Selection with Random Forest', y = 'Importance') %>%
+  saveRDS('./Plots/recPlot.rds')
 
 model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, mtry = 14, ntree = 10)
 import <- importance(model)
@@ -1058,9 +1059,10 @@ data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
   ggplot() +
   geom_col(aes(Var, Purity)) + 
   theme(axis.text.x = element_text(angle = 45)) +
-  labs()
+  labs(title = 'Variable Selection with Bagging', y = 'Importance') %>%
+  saveRDS('./Plots/recYdsPlot.rds')
 
-model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 10)
+model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = train_data, mtry = 15, ntree = 10)
 import <- importance(model)
 
 data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
@@ -1070,6 +1072,18 @@ data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
   geom_col(aes(Var, Purity)) + 
   theme(axis.text.x = element_text(angle = 45)) +
   labs()
+
+model <- prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2')
+
+plt %<a-% {
+  plot(model)
+  text(model)
+}
+
+plt %>%
+  saveRDS('./recTDPlot.rds')
+
+plt
 ```
 
 
