@@ -9,6 +9,10 @@ library(tidyverse)
 library(knitr)
 ```
 
+```{r}
+set.seed(445)
+```
+
 Read in the data:
 ```{r, message=FALSE, warning=FALSE}
 fileName <- './Data/averages.csv'
