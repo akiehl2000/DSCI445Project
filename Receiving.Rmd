@@ -20,6 +20,7 @@ library(tree)
 library(corrplot)
 library(regclass)
 library(gbm)
+library(knitr)
 ```
 
 For reproducibility:
@@ -621,7 +622,7 @@ recMSE <- round(mean(tree_mse), 3)
 ```
 Tree model built to predict `RecYds` variable. 
 ```{r}
-tree_model <- tree(RecYds ~ . - Rec - RecTD - FL, train_data)
+tree_model <- tree(RecYds ~ . - Rec - RecTD - FL - RecYAC, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
 ggplot() +
@@ -642,7 +643,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  tree_model <- prune.tree(tree(RecYds ~ . - Rec - RecTD - FL, trn), best = '7')
+  tree_model <- prune.tree(tree(RecYds ~ . - Rec - RecTD - FL - RecYAC, trn), best = '7')
   
   pred <- round(predict(tree_model, vld))
   
@@ -727,7 +728,7 @@ tree_results$MSE[which(tree_results$Model == 'FL')] <- FLMSE
 tree_results
 ```
 
-# Boosting and Bagging
+# Boosting
 
 Boosted tree model to predict `Rec` variable.
 ```{r, warning=FALSE, message=FALSE}
@@ -768,7 +769,7 @@ for (lambda in results$lambda) {
     trn <- train_data[folds != k,]
     vld <- train_data[folds == k,]
     
-    model <- gbm(RecYds ~ . - Rec - RecTD - FL, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
+    model <- gbm(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = trn, distribution = 'gaussian', n.trees = 100, shrinkage = lambda)
     
     pred <- round(predict(model, vld))
     
@@ -862,7 +863,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 10)
+  model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 50)
 
   pred <- round(predict(model, vld))
 
@@ -879,7 +880,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(RecYds ~ . - Rec - RecTD - FL, data = trn, mtry = 15, ntree = 10)
+  model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = trn, mtry = 14, ntree = 50)
 
   pred <- round(predict(model, vld))
 
@@ -896,7 +897,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 10)
+  model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 50)
 
   pred <- round(predict(model, vld))
 
@@ -913,7 +914,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 10)
+  model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = trn, mtry = 15, ntree = 50)
 
   pred <- round(predict(model, vld))
 
@@ -944,7 +945,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = trn, mtry = 4, ntree = 10)
+  model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = trn, mtry = 4, ntree = 100)
 
   pred <- round(predict(model, vld))
 
@@ -961,7 +962,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(RecYds ~ . - Rec - RecTD - FL, data = trn, mtry = 4, ntree = 10)
+  model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = trn, mtry = 4, ntree = 100)
 
   pred <- round(predict(model, vld))
 
@@ -978,7 +979,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 4, ntree = 10)
+  model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 4, ntree = 100)
 
   pred <- round(predict(model, vld))
 
@@ -995,7 +996,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
 
-  model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = trn, mtry = 4, ntree = 10)
+  model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = trn, mtry = 4, ntree = 100)
 
   pred <- round(predict(model, vld))
 
@@ -1032,24 +1033,61 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
                       RF = rf_results$MSE); results
 
 results %>%
+  kable() %>%
   saveRDS('./Tables/recResults.rds')
 ```
+
+```{r}
+model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = train_data, mtry = 4, ntree = 10)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs()
+
+model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, mtry = 14, ntree = 10)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs()
+
+model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 10)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs()
+```
+
 
 Save best models as .rds files.
 ```{r, warning=FALSE}
 # Random forest model chosen for Rec
-randomForest(Rec ~ . - RecYds - RecTD - FL, data = train_data, mtry = 4, ntree = 200) %>%
+randomForest(Rec ~ Tgt + FirstDRec + RecYAC + RecYBC + Rat, data = train_data, mtry = 2, ntree = 200) %>%
   saveRDS('./Models/recModel.rds')
 
 # Bagged tree model chosen for RecYds
-randomForest(RecYds ~ . - Rec - RecTD - FL, data = train_data, mtry = 15, ntree = 200) %>%
+randomForest(RecYds ~ RecYBC + FirstDRec + RecLng + YACPerR, data = train_data, mtry = 4, ntree = 200) %>%
   saveRDS('./Models/recYdsModel.rds')
 
-# Bagged tree model chosen for RecTD
-randomForest(RecTD ~ . - Rec - RecYds - FL, data = trn, mtry = 15, ntree = 100) %>%
+# Decision tree model chosen for RecTD
+prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2') %>%
   saveRDS('./Models/recTDModel.rds')
 
-# Tree-based model chosen for FL
+# Decision tree model chosen for FL
 prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, train_data), best = '2') %>%
   saveRDS('./Models/recFLModel.rds')
 ```
