@@ -37,27 +37,16 @@ par(mfrow = c(2,2))
 readRDS('../Plots/pcplot.rds')
 
 #Plot 2: PassYds as Response
-readRDS('../Plots/passydstree.rds')
-
+readRDS('../Plots/ydstree.rds')
 
 # Plot 3: PassInt as Response
-tree_model = tree(PassInt ~ . - PassYds - PassTD - FL, train_data)
-cv_tree = cv.tree(tree_model)
-tree_model = prune.tree(tree_model, best = '12')
-plot(tree_model)
-text(tree_model)
+readRDS('../Plots/inttree.rds')
 
 # Plot 4: PassTD as Response
-tree_model = tree(PassTD ~ . - PassYds - PassInt - FL, train_data)
-cv_tree = cv.tree(tree_model)
-plot(tree_model)
-text(tree_model)
+readRDS('../Plots/tdtree.rds')
 
 # Plot 5: FL as Response
-tree_model = tree(FL ~ . - PassYds - PassInt - PassTD, train_data)
-cv_tree = cv.tree(tree_model)
-plot(tree_model)
-text(tree_model)
+readRDS('../Plots/fltree.rds')
 ```
 
 # Passing Analysis pt. 3
