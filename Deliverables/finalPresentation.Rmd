@@ -9,9 +9,15 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(randomForest)
+library(tree)
 ```
 
 # Introduction
+
+```{r, echo=FALSE}
+readRDS('../Tables/fanPts.rds')
+```
 
 # Data
 
@@ -24,60 +30,175 @@ Models that were used:
   - Tree
   - Bagging
 
+Predictors: `Cmp`, `PassAtt`, `Sk`, `YdsLost`, `PassLng`, `Rate`, `FirstDPass`, `FirstDPassPer`, `CAY`, `YACPerCmp`, `PassDrops`, `BadThrow`, `BadPer`
+
+Dropped `PassYAC` (multicollinearity)
+
 # Passing Analysis pt. 2
 
 ```{r}
 par(mfrow = c(2,2))
 
 #Plot 1: Scree Plot
-fviz_eig(pca_model)
-
+readRDS('../Plots/pcplot.rds')
 
 #Plot 2: PassYds as Response
-tree_passyds = tree(PassYds ~ . - PassTD - PassInt - FL, train_data)
-cv_tree = cv.tree(tree_passyds)
-plot(tree_passyds)
-text(tree_passyds)
-
+readRDS('../Plots/ydstree.rds')
 
 # Plot 3: PassInt as Response
-tree_model = tree(PassInt ~ . - PassYds - PassTD - FL, train_data)
-cv_tree = cv.tree(tree_model)
-tree_model = prune.tree(tree_model, best = '12')
-plot(tree_model)
-text(tree_model)
+readRDS('../Plots/inttree.rds')
 
 # Plot 4: PassTD as Response
-tree_model = tree(PassTD ~ . - PassYds - PassInt - FL, train_data)
-cv_tree = cv.tree(tree_model)
-plot(tree_model)
-text(tree_model)
+readRDS('../Plots/tdtree.rds')
 
 # Plot 5: FL as Response
-tree_model = tree(FL ~ . - PassYds - PassInt - PassTD, train_data)
-cv_tree = cv.tree(tree_model)
-plot(tree_model)
-text(tree_model)
+readRDS('../Plots/fltree.rds')
 ```
 
 # Passing Analysis pt. 3
 
 ```{r}
-master
+readRDS('../Tables/master.rds')
 ```
 
 # Receiving Analysis pt. 1
 
+Predictors: Tgt, RecLng, Fmb, FirstDRec, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT, RecBrkTkl, RecPerBr, RecDrop, DropPerRec, RecInt, Rat
+
+- Goal of simplicity and predictive accuracy
+- Correlation matrix and VIF scores to identify multicollinearity (`FirstDRec`, `RecYBC`, `YBCPerR`, `YACPerR`, `DropPerRec`)
+- `RecYAC` dropped
+
 # Receiving Analysis pt. 2
 
-# Receiving Analysis pt. 3
+- Dimension reduction techniques
+  - Best Subset -> 3-5 predictors used with `Tgt` and `Rat` appearing most frequently
+  - LASSO -> 5-10 predictors used but didn't perform better than best subset 
+  - PC regression -> 7-8 principal components used (sharp dropoff afterwards); excellent performance for `RecYds`
+  - Pruned trees -> 2 terminal nodes used for `RecTD` and 6-7 otherwise. `Tgt` and `Rat`
+  - Bagging and Random Forest -> 1-5 important variables with excellent predictive performance
+  
+# Receiving Results
+
+```{r, echo=FALSE}
+readRDS('../Tables/recResultsStart.rds')
+readRDS('../Tables/recResultsEnd.rds')
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+fileName <- '../Data/masterDF[2018-2020].csv'
+rec_data <- read_csv(fileName) %>%
+  select(-'...1')
+rec_data <- rec_data[, c(1:3, 17:23, 51:62)]
+
+train_data <- rec_data[which(rec_data$Rec > 0 & !is.na(rec_data$RecLng)), -c(1:3)]
+train_data[is.na(train_data)] <- 0
+```
+
+# Receptions Model
+
+Rec: Random forest model chosen with `Tgt`, `FirstDRec`, `RecYAC`, `RecYBC`, `Rat` 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = train_data, mtry = 4, ntree = 10)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Random Forest', y = 'Importance')
+```
+
+# Receiving Yards Model
+
+RecYds: Bagged tree model chosen with `RecYBC`, `FirstDRec`, `RecLng`, `YACPerR`
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, mtry = 14, ntree = 10)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Bagging', y = 'Importance')
+```
+
+# Receiving TDs Model
+
+RecTD: Tree model chosen with only `Rat` as a predictor
+
+- QBR uses frequencies of completions, yards, touchdowns, and interceptions
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+model <- prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2')
+
+plot(model)
+text(model)
+```
 
 # Rushing Analysis pt. 1
 
+Rushing Predictors: RushYds, RushTD, FL
+-Started out with a number of predictors but determined that these 3 were the most important in this case. 
+-When analyzing rushing data, we found that there are a lot of variables that are colinear. 
+-One example of a predictor that I did not end up needing is 'FirstDRush'. This variable does not lead to fantasy points and relates closely with 'RushYds'.
+
 # Rushing Analysis pt. 2
+
+-Machine Learning Models:
+  -The models I ended up using were Muliple Linear Regression, Lasso, PCR, Bagging, and Boosting
+  -PCR ended up giving values that were not as useful for our rushing experimentation. 
+  -MLR provided the best MSE values for RushTD and FL (Fumbles lost)
+  -Bagging gave the best value  for RushYds
+  -Thus these models were selected for final testing.
 
 # Rushing Analysis pt. 3
 
+-Models:
+```{r}
+m <- readRDS('../Models/rushTDModel.rds')
+plot(m)
+m1 <- readRDS('../Models/rushYdsModel.rds')
+plot(m1)
+```
+
+# Fumbles Lost Analysis
+
+-Fumbles lost is the count of fumbles a player has that result in a turnover.
+-Analyzing fumbles lost was cool because we were all building models for the same variable but using different predictors.
+-The best FL model for Receptions predictors was a Tree model with an MSE of .028
+-The best FL model for Passing predictors was a MLR model with an MSE of .191
+-The best FL model for Rushing predictors was a MLR model with an MSE of .084
+-As you can see overall the best was to predict fumbles lost in our data is to use the tree model for Rec data.
+
 # Results
 
+```{r, echo=FALSE}
+readRDS('../Tables/predPartial.rds')
+```
+
+# MSE
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+read_csv('../Data/predFull.csv') %>%
+  ggplot() +
+  geom_histogram(aes(sqrt(MSE)), binwidth = .5) + 
+  labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
+       y = 'Count')
+```
+
 # Validation
+
+```{r, echo=FALSE}
+readRDS('../Tables/MSE.rds')
+```
+
+# Future Efforts
+
+- Refit Random Forest models with better subset of predictors
+- Injuries
+- Strength of opponent
+- Assuming a Poisson distribution for Rec, TD, Int, FL

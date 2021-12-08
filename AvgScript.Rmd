@@ -17,9 +17,12 @@ colnames(freq) = c("Player", "Freq")
 
 data = merge(data, freq, by = "Player")
 
+data[is.na(data)] <- 0
+
 avg = data %>%
   group_by(Player) %>%
   filter(Freq > 16) %>%
+  arrange(as.numeric(substr(Game, 1, 8))) %>%
   do(tail(.,17)) %>%
   summarise_if(is.numeric, mean, na.rm = TRUE)
 
