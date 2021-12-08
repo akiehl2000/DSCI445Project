@@ -21,6 +21,7 @@ library(corrplot)
 library(regclass)
 library(gbm)
 library(knitr)
+library(pryr)
 ```
 
 For reproducibility:
@@ -1033,8 +1034,16 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
                       RF = rf_results$MSE); results
 
 results %>%
-  kable() %>%
+  kable(format = 'latex') %>%
   saveRDS('./Tables/recResults.rds')
+
+results[1:3, 1:6] %>%
+  kable(format = 'latex') %>%
+  saveRDS('./Tables/recResultsStart.rds')
+
+results[1:3, c(1, 7:9)] %>%
+  kable(format = 'latex') %>%
+  saveRDS('./Tables/recResultsEnd.rds')
 ```
 
 ```{r}

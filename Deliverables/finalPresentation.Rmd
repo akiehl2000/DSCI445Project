@@ -9,9 +9,15 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(randomForest)
+library(tree)
 ```
 
 # Introduction
+
+```{r, echo=FALSE}
+readRDS('../Tables/fanPts.rds')
+```
 
 # Data
 
@@ -58,25 +64,80 @@ readRDS('../Tables/master.rds')
 # Receiving Analysis pt. 1
 
 Predictors: Tgt, RecLng, Fmb, FirstDRec, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT, RecBrkTkl, RecPerBr, RecDrop, DropPerRec, RecInt, Rat
+
 - Goal of simplicity and predictive accuracy
 - Correlation matrix and VIF scores to identify multicollinearity (`FirstDRec`, `RecYBC`, `YBCPerR`, `YACPerR`, `DropPerRec`)
 - `RecYAC` dropped
+
+# Receiving Analysis pt. 2
+
 - Dimension reduction techniques
   - Best Subset -> 3-5 predictors used with `Tgt` and `Rat` appearing most frequently
   - LASSO -> 5-10 predictors used but didn't perform better than best subset 
   - PC regression -> 7-8 principal components used (sharp dropoff afterwards); excellent performance for `RecYds`
   - Pruned trees -> 2 terminal nodes used for `RecTD` and 6-7 otherwise. `Tgt` and `Rat`
   - Bagging and Random Forest -> 1-5 important variables with excellent predictive performance
-- Rec: Random forest model chosen with `Tgt`, `FirstDRec`, `RecYAC`, `RecYBC`, `Rat` (sandwich)
-PLOT OF VARIABLE IMPORTANCE
-- RecYds: Bagged tree model chosen with `RecYBC` (primarily), `FirstDRec`, `RecLng`, `YACPerR`
-PLOT OF VARIABLE IMPORTANCE
-- RecTD: Bagged tree model chose `Rat` as the only important variable so a regular tree with just `Rat` performed just as well
-PLOT OF TREE
+  
+# Receiving Results
 
-# Receiving Analysis pt. 2
+```{r, echo=FALSE}
+readRDS('../Tables/recResultsStart.rds')
+readRDS('../Tables/recResultsEnd.rds')
+```
 
-# Receiving Analysis pt. 3
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+fileName <- '../Data/masterDF[2018-2020].csv'
+rec_data <- read_csv(fileName) %>%
+  select(-'...1')
+rec_data <- rec_data[, c(1:3, 17:23, 51:62)]
+
+train_data <- rec_data[which(rec_data$Rec > 0 & !is.na(rec_data$RecLng)), -c(1:3)]
+train_data[is.na(train_data)] <- 0
+```
+
+# Receptions Model
+
+Rec: Random forest model chosen with `Tgt`, `FirstDRec`, `RecYAC`, `RecYBC`, `Rat` 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = train_data, mtry = 4, ntree = 10)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Random Forest', y = 'Importance')
+```
+
+# Receiving Yards Model
+
+RecYds: Bagged tree model chosen with `RecYBC`, `FirstDRec`, `RecLng`, `YACPerR`
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, mtry = 14, ntree = 10)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Bagging', y = 'Importance')
+```
+
+# Receiving TDs Model
+
+RecTD: Tree model chosen with only `Rat` as a predictor
+
+- QBR uses frequencies of completions, yards, touchdowns, and interceptions
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+model <- prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2')
+
+plot(model)
+text(model)
+```
 
 # Rushing Analysis pt. 1
 
@@ -105,7 +166,25 @@ Rushing Predictors: RushYds, RushTD, FL
 
 # Results
 
+```{r, echo=FALSE}
+readRDS('../Tables/predPartial.rds')
+```
+
+# MSE
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+read_csv('../Data/predFull.csv') %>%
+  ggplot() +
+  geom_histogram(aes(sqrt(MSE)), binwidth = .5) + 
+  labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
+       y = 'Count')
+```
+
 # Validation
+
+```{r, echo=FALSE}
+readRDS('../Tables/MSE.rds')
+```
 
 # Future Efforts
 
