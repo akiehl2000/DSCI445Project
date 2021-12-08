@@ -9,6 +9,10 @@ library(tidyverse)
 library(knitr)
 ```
 
+```{r}
+set.seed(445)
+```
+
 Read in the data:
 ```{r, message=FALSE, warning=FALSE}
 fileName <- './Data/averages.csv'
@@ -180,8 +184,8 @@ plt <- ggplot(predictions) +
   labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
        y = 'Count')
 
-# plt %>%
-#   saveRDS('./Plots/histMSE.rds')
+plt %>%
+  saveRDS('./Plots/histMSE.rds')
 
 plt
 ```
@@ -208,6 +212,7 @@ for (stat in mse_results$Stat) {
 }
 
 mse_results %>%
+  kable() %>%
   saveRDS('./Tables/MSE.rds')
 
 mse_results
@@ -216,11 +221,13 @@ mse_results
 ```{r}
 predictions %>%
   arrange(desc(fanPts)) %>%
+  kable() %>%
   saveRDS('./Tables/predFull.rds')
 
 predictions %>%
   arrange(desc(fanPts)) %>%
   head(11) %>%
+  kable() %>%
   saveRDS('./Tables/predPartial.rds')
 
 predictions %>%
