@@ -79,7 +79,7 @@ Predictors: Tgt, RecLng, Fmb, FirstDRec, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT,
   - Pruned trees -> 2 terminal nodes used for `RecTD` and 6-7 otherwise. `Tgt` and `Rat`
   - Bagging and Random Forest -> 1-5 important variables with excellent predictive performance
 - Rec: Random forest model chosen with `Tgt`, `FirstDRec`, `RecYAC`, `RecYBC`, `Rat` (sandwich)
-PLOT OF VARIABLE IMPROTANCE
+PLOT OF VARIABLE IMPORTANCE
 - RecYds: Bagged tree model chosen with `RecYBC` (primarily), `FirstDRec`, `RecLng`, `YACPerR`
 PLOT OF VARIABLE IMPORTANCE
 - RecTD: Bagged tree model chose `Rat` as the only important variable so a regular tree with just `Rat` performed just as well
@@ -91,9 +91,26 @@ PLOT OF TREE
 
 # Rushing Analysis pt. 1
 
+Rushing Predictors: RushYds, RushTD, FL
+-Started out with a number of predictors but determined that these 3 were the most important in this case. 
+-When analyzing rushing data, we found that there are a lot of variables that are colinear. 
+-One example of a predictor that I did not end up needing is 'FirstDRush'. This variable does not lead to fantasy points and relates closely with 'RushYds'.
+
 # Rushing Analysis pt. 2
 
+-Machine Learning Models:
+  -The models I ended up using were Muliple Linear Regression, Lasso, PCR, Bagging, and Boosting
+  -PCR ended up giving values that were not as useful for our rushing experimentation. 
+  -MLR provided the best MSE values for RushTD and FL (Fumbles lost)
+  -Bagging gave the best value  for RushYds
+  -Thus these models were selected for final testing.
+
 # Rushing Analysis pt. 3
+
+-Models:
+  - Rush Yards Plot
+  - Rush TDs Plot
+  - Fumbles lost Plot
 
 # Fumbles Analysis
 
