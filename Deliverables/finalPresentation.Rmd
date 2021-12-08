@@ -15,11 +15,11 @@ library(tree)
 
 # Introduction
 
-Can we predict top fantasy point performers in the NFL?
-  - Took data from the 2018-2020 seasons and used these to predict performances in 2021.
-  - Used various models to predict and wrangled up the best for each response variable for testing.
+Can we predict top fantasy point performers in the NFL using publicly available advanced metrics?
 
-Are there players that perform very well that you could get on your team with a later draft pick?
+  - Training set: 2018-2020 seasons; Testing set: 2021 season
+  - Data scraped from pro-football-reference.com
+  - Tried range of models to predict point-worthy statistics:
 
 ```{r, echo=FALSE}
 readRDS('../Tables/fanPts.rds')
@@ -50,6 +50,7 @@ train_data
 # Passing Analysis pt. 1
 
 Models that were used:
+
   - Multiple Linear Regression (MLR)
   - LASSO
   - Principal Component Analysis/Regression
@@ -93,24 +94,13 @@ plot(tree_model)
 text(tree_model)
 ```
 
-# Passing (Fumbles Lost)
-
-```{r, echo=FALSE}
-tree_model = tree(FL ~ . - PassYds - PassInt - PassTD, train_data)
-
-tree_model = prune.tree(tree_model, best = '5')
-
-plot(tree_model)
-text(tree_model)
-```
-
 # Passing Analysis MSE Matrix
 
 ```{r, echo=FALSE}
 readRDS('../Tables/master.rds')
 ```
 
-# Receiving Analysis pt. 1
+# Receiving Analysis
 
 Predictors: Tgt, RecLng, Fmb, FirstDRec, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT, RecBrkTkl, RecPerBr, RecDrop, DropPerRec, RecInt, Rat
 
@@ -118,14 +108,15 @@ Predictors: Tgt, RecLng, Fmb, FirstDRec, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT,
 - Correlation matrix and VIF scores to identify multicollinearity (`FirstDRec`, `RecYBC`, `YBCPerR`, `YACPerR`, `DropPerRec`)
 - `RecYAC` dropped
 
-# Receiving Analysis pt. 2
+# Dimension Reduction
 
-- Dimension reduction techniques
-  - Best Subset -> 3-5 predictors used with `Tgt` and `Rat` appearing most frequently
-  - LASSO -> 5-10 predictors used but didn't perform better than best subset 
-  - PC regression -> 7-8 principal components used (sharp dropoff afterwards); excellent performance for `RecYds`
-  - Pruned trees -> 2 terminal nodes used for `RecTD` and 6-7 otherwise. `Tgt` and `Rat`
-  - Bagging and Random Forest -> 1-5 important variables with excellent predictive performance
+- Dimension reduction techniques:
+  - Best Subset -> 3-5 predictors
+  - LASSO -> 5-10 predictors
+  - PC regression -> 7-8 principal components
+  - Pruned trees -> 2 terminal nodes for `RecTD` and 6-7 otherwise
+  - Bagging and Random Forest -> 1 important variable for `RecTD` and 4-5 otherwise
+  - `Tgt` and `Rat` predictors appear often
   
 # Receiving Results
 
@@ -191,47 +182,58 @@ text(model)
 # Rushing Analysis pt. 1
 
 Rushing Predictors: RushYds, RushTD, FL
--Started out with a number of predictors but determined that these 3 were the most important in this case. 
 
--When analyzing rushing data, we found that there are a lot of variables that are colinear. 
+- Started out with a number of predictors but determined that these 3 were the most important in this case. 
 
--One example of a predictor that I did not end up needing is 'FirstDRush'. This variable does not lead to fantasy points and relates closely with 'RushYds'.
+- When analyzing rushing data, we found that there are a lot of variables that are colinear. 
+
+- One example of a predictor that I did not end up needing is 'FirstDRush'. This variable does not lead to fantasy points and relates closely with 'RushYds'.
 
 # Rushing Analysis pt. 2
 
--Machine Learning Models:
-  -The models I ended up using were Muliple Linear Regression, Lasso, PCR, Bagging, and Boosting
+- Machine Learning Models:
+
+  - The models I ended up using were Muliple Linear Regression, Lasso, PCR, Bagging, and Boosting
   
-  -PCR ended up giving values that were not as useful for our rushing experimentation.
+  - PCR ended up giving values that were not as useful for our rushing experimentation.
   
-  -MLR provided the best MSE values for RushTD and FL (Fumbles lost)
+  - MLR provided the best MSE values for RushTD and FL (Fumbles lost)
   
-  -Bagging gave the best value  for RushYds
+  - Bagging gave the best value  for RushYds
   
-  -Thus these models were selected for final testing.
+  - Thus these models were selected for final testing.
 
 # Rushing Analysis pt. 3
 
 Models:
 
-```{r}
+```{r, echo=FALSE}
 m1 <- readRDS('../Models/rushYdsModel.rds')
 plot(m1)
 ```
 
 # Fumbles Analysis
 
--Fumbles lost is the count of fumbles a player has that result in a turnover.
+- Fumbles lost is the count of fumbles a player has that result in a turnover.
 
--Analyzing fumbles lost was cool because we were all building models for the same variable but using different predictors.
+- Analyzing fumbles lost was cool because we were all building models for the same variable but using different predictors.
 
--The best FL model for Receptions predictors was a Tree model with an MSE of .028
+- The best FL model for Receptions predictors was a Tree model with an MSE of .028
 
--The best FL model for Passing predictors was a MLR model with an MSE of .191
+- The best FL model for Passing predictors was a MLR model with an MSE of .191
 
--The best FL model for Rushing predictors was a MLR model with an MSE of .084
+- The best FL model for Rushing predictors was a MLR model with an MSE of .084
 
--As you can see overall the best was to predict fumbles lost in our data is to use the tree model for Rec data.
+- As you can see overall the best was to predict fumbles lost in our data is to use the tree model for Rec data.
+
+# Validation
+
+- Prediction performed on averaged data set of each player's last 17 games
+- Resulted in an expected 'typical performance' for MSE calculations
+
+```{r, echo=FALSE}
+readRDS('../Tables/MSE.rds')
+```
 
 # Results
 
@@ -249,15 +251,11 @@ read_csv('../Data/predFull.csv') %>%
        y = 'Count')
 ```
 
-# Validation
-
-```{r, echo=FALSE}
-readRDS('../Tables/MSE.rds')
-```
-
 # Future Efforts
 
-- Refit Random Forest models with better subset of predictors
-- Injuries
-- Strength of opponent
-- Assuming a Poisson distribution for Rec, TD, Int, FL
+- Use bootstrap or MC methods to generate large sample size
+- Assume a discrete (Poisson?) distribution for `Rec`, `TD`, `Int`, `FL`
+- Other factors to consider:
+  - Expectation of injury
+  - Strength of opponent
+
