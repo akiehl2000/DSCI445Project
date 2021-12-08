@@ -216,12 +216,12 @@ mse_results
 ```{r}
 predictions %>%
   arrange(desc(fanPts)) %>%
-  saveRDS('./Tables/predFull')
+  saveRDS('./Tables/predFull.rds')
 
 predictions %>%
   arrange(desc(fanPts)) %>%
   head(11) %>%
-  saveRDS('./Tables/predPartial')
+  saveRDS('./Tables/predPartial.rds')
 
 predictions %>%
   arrange(desc(fanPts)) %>%
