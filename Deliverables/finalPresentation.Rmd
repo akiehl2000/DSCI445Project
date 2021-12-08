@@ -16,8 +16,8 @@ library(tree)
 # Introduction
 
 Can we predict top fantasy point performers in the NFL?
-- Took data from the 2018-2020 seasons and used these to predict performances in 2021.
-- Used various models to predict and wrangled up the best for each response variable for testing.
+  - Took data from the 2018-2020 seasons and used these to predict performances in 2021.
+  - Used various models to predict and wrangled up the best for each response variable for testing.
 
 Are there players that perform very well that you could get on your team with a later draft pick?
 
@@ -25,24 +25,7 @@ Are there players that perform very well that you could get on your team with a 
 readRDS('../Tables/fanPts.rds')
 ```
 
-# Data
-
-# Passing Analysis pt. 1
-
-Models that were used:
-  - Multiple Linear Regression (MLR)
-  - LASSO
-  - Principal Component Analysis/Regression
-  - Tree
-  - Bagging
-
-Predictors: `Cmp`, `PassAtt`, `Sk`, `YdsLost`, `PassLng`, `Rate`, `FirstDPass`, `FirstDPassPer`, `CAY`, `YACPerCmp`, `PassDrops`, `BadThrow`, `BadPer`
-
-Dropped `PassYAC` (multicollinearity)
-
-# Passing Analysis pt. 2
-
-```{r, echo = FALSE, message = FALSE, warning=FALSE}
+```{r, include=FALSE, message = FALSE, warning=FALSE}
 pass_data = read_csv('../Data/masterDF[2018-2020].csv')
 
 pass_data = pass_data %>%
@@ -63,6 +46,20 @@ for (i in 1:nrow(train_data)) {
 
 train_data
 ```
+
+# Passing Analysis pt. 1
+
+Models that were used:
+  - Multiple Linear Regression (MLR)
+  - LASSO
+  - Principal Component Analysis/Regression
+  - Tree
+  - Bagging
+
+Predictors: `Cmp`, `PassAtt`, `Sk`, `YdsLost`, `PassLng`, `Rate`, `FirstDPass`, `FirstDPassPer`, `CAY`, `YACPerCmp`, `PassDrops`, `BadThrow`, `BadPer`
+
+Dropped `PassYAC` (multicollinearity)
+
 # Tree (Passing Yards)
 
 ```{r, echo = FALSE}
@@ -73,6 +70,7 @@ tree_passyds = prune.tree(tree_passyds, best = '8')
 plot(tree_passyds)
 text(tree_passyds)
 ```
+
 # Tree (Interceptions)
 
 ```{r, echo=FALSE}
@@ -106,7 +104,7 @@ plot(tree_model)
 text(tree_model)
 ```
 
-# Passing Analysis pt. 3
+# Passing Analysis MSE Matrix
 
 ```{r, echo=FALSE}
 readRDS('../Tables/master.rds')
@@ -194,26 +192,46 @@ text(model)
 
 Rushing Predictors: RushYds, RushTD, FL
 -Started out with a number of predictors but determined that these 3 were the most important in this case. 
+
 -When analyzing rushing data, we found that there are a lot of variables that are colinear. 
+
 -One example of a predictor that I did not end up needing is 'FirstDRush'. This variable does not lead to fantasy points and relates closely with 'RushYds'.
 
 # Rushing Analysis pt. 2
 
 -Machine Learning Models:
   -The models I ended up using were Muliple Linear Regression, Lasso, PCR, Bagging, and Boosting
-  -PCR ended up giving values that were not as useful for our rushing experimentation. 
+  
+  -PCR ended up giving values that were not as useful for our rushing experimentation.
+  
   -MLR provided the best MSE values for RushTD and FL (Fumbles lost)
+  
   -Bagging gave the best value  for RushYds
+  
   -Thus these models were selected for final testing.
 
 # Rushing Analysis pt. 3
 
--Models:
-  - Rush Yards Plot
-  - Rush TDs Plot
-  - Fumbles lost Plot
+Models:
+
+```{r}
+m1 <- readRDS('../Models/rushYdsModel.rds')
+plot(m1)
+```
 
 # Fumbles Analysis
+
+-Fumbles lost is the count of fumbles a player has that result in a turnover.
+
+-Analyzing fumbles lost was cool because we were all building models for the same variable but using different predictors.
+
+-The best FL model for Receptions predictors was a Tree model with an MSE of .028
+
+-The best FL model for Passing predictors was a MLR model with an MSE of .191
+
+-The best FL model for Rushing predictors was a MLR model with an MSE of .084
+
+-As you can see overall the best was to predict fumbles lost in our data is to use the tree model for Rec data.
 
 # Results
 
