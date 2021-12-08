@@ -56,7 +56,7 @@ weights <- data.frame(Stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushT
                        Pts = c(.04, 4, -1, .1, 6, 1, .1, 6, -2))
 
 weights %>% 
-  kable() %>%
+  kable(format = 'latex') %>%
   write_rds('./Tables/fanPts.rds')
 ```
 
@@ -179,7 +179,7 @@ predictions <- predictions %>%
   mutate(MSE = player_mse) %>%
   filter(!is.nan(MSE))
 
-plt <- ggplot(predictions) +
+ggplot(predictions) +
   geom_histogram(aes(sqrt(MSE)), binwidth = .5) + 
   labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
        y = 'Count')
@@ -212,7 +212,7 @@ for (stat in mse_results$Stat) {
 }
 
 mse_results %>%
-  kable() %>%
+  kable(format = 'latex') %>%
   saveRDS('./Tables/MSE.rds')
 
 mse_results
@@ -221,13 +221,14 @@ mse_results
 ```{r}
 predictions %>%
   arrange(desc(fanPts)) %>%
-  kable() %>%
-  saveRDS('./Tables/predFull.rds')
+  select(c('Player', 'Pos', 'fanPts', 'MSE')) %>%
+  write_csv('./Data/predFull.csv')
 
 predictions %>%
   arrange(desc(fanPts)) %>%
+  select(c('Player', 'Pos', 'fanPts', 'MSE')) %>%
   head(11) %>%
-  kable() %>%
+  kable(format = 'latex') %>%
   saveRDS('./Tables/predPartial.rds')
 
 predictions %>%
