@@ -381,7 +381,7 @@ ydstree %<a-% {
   text(tree_passyds)
 }
 ydstree %>%
-  saveRDS('./Plots/ydstree.rmd')
+  saveRDS('./Plots/ydstree.rds')
 
 tree_mse = rep(NA,K)
 
@@ -423,7 +423,7 @@ tdtree %<a-% {
 }
 
 tdtree %>%
-  saveRDS('./Plots/tdtree.rmd')
+  saveRDS('./Plots/tdtree.rds')
 
 tree_mse = rep(NA,K)
 
@@ -465,7 +465,7 @@ inttree %<a-% {
 }
 
 inttree %>%
-  saveRDS('./Plots/inttree.rmd')
+  saveRDS('./Plots/inttree.rds')
 
 tree_mse = rep(NA,K)
 
@@ -507,7 +507,7 @@ fltree %<a-% {
 }
 
 fltree %>%
-  saveRDS('./Plots/fltree.rmd')
+  saveRDS('./Plots/fltree.rds')
 
 tree_mse = rep(NA,K)
 
