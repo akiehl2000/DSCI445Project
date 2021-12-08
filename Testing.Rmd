@@ -10,13 +10,40 @@ library(knitr)
 ```
 
 Read in the data:
-```{r}
+```{r, message=FALSE, warning=FALSE}
 fileName <- './Data/averages.csv'
 pred_data <- read_csv(fileName)
 
 fileName <- './Data/masterDF[2021-2021].csv'
 test_data <- read_csv(fileName) %>%
   select(-'...1')
+```
+
+Add `Pos` field:
+```{r}
+pos <- rep(NA, nrow(pred_data))
+
+for (i in 1:nrow(pred_data)) {
+  pass <- pred_data$PassYds[i]
+  rush <- pred_data$RushYds[i]
+  rec <- pred_data$RecYds[i]
+  
+  if (pass > rush & pass > rec) {
+    pos[i] <- 'QB'
+  }
+  
+  else if (rush > pass & rush > rec) {
+    pos[i] <- 'RB'
+  }
+  
+  else if (rec > pass & rec > rush) {
+    pos[i] <- 'WR'
+  }
+  
+  else {
+    pos[i] <- 'UNK'
+  }
+}
 ```
 
 Build weights table:
@@ -29,41 +56,57 @@ weights %>%
   write_rds('./Tables/fanPts.rds')
 ```
 
+```{r}
+removeNegatives <- function(x) {
+  for (i in 1:length(x)) {
+    x[i] <- max(0, x[i])
+  }
+  
+  return(x)
+}
+```
+
 `PassYds` model:
 ```{r}
 passYdsPred <- readRDS('./Models/passydsModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 `PassTD` model:
 ```{r}
 passTDPred <- readRDS('./Models/passtdModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 `PassInt` model:
 ```{r}
 passIntPred <- readRDS('./Models/intModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 `FL` model (pass):
 ```{r}
 FLPred <- readRDS('./Models/flModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 `RushYds` model:
 ```{r}
 rushYdsPred <- readRDS('./Models/rushYdsModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 `RushTD` model:
 ```{r}
 rushTDPred <- readRDS('./Models/rushTDModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 `FL` model (rush):
 ```{r}
@@ -73,30 +116,36 @@ FLPred <- readRDS('./Models/rushFLModel.rds')
 ```{r}
 recPred <- readRDS('./Models/recModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives() %>%
+  removeNegatives()
 ```
 `RecYds` model:
 ```{r}
 recYdsPred <- readRDS('./Models/recYdsModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 `RecTD` model:
 ```{r}
 recTDPred <- readRDS('./Models/recTDModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 `FL` model (receiving):
 ```{r}
 FLPred <- readRDS('./Models/FLModel.rds') %>%
   predict(pred_data) %>%
-  round()
+  round() %>%
+  removeNegatives()
 ```
 
 Collect stat predictions and weight according to fantasy values:
 ```{r}
 predictions <- data.frame(Player = pred_data$Player,
+                          Pos = pos,
                           PassYds = passYdsPred,
                           PassTD = passTDPred,
                           PassInt = passIntPred,
@@ -131,8 +180,8 @@ plt <- ggplot(predictions) +
   labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
        y = 'Count')
 
-plt %>%
-  saveRDS('./Plots/histMSE.rds')
+# plt %>%
+#   saveRDS('./Plots/histMSE.rds')
 
 plt
 ```
@@ -176,38 +225,31 @@ predictions %>%
 
 predictions %>%
   arrange(desc(fanPts)) %>%
-  head(10)
+  head(20)
 ```
 
 ```{r}
-pos <- rep(NA, nrow(predictions))
-
-for (i in 1:nrow(predictions)) {
-  pass <- predictions$PassYds[i]
-  rush <- predictions$RushYds[i]
-  rec <- predictions$RecYds[i]
-  
-  if (pass > rush & pass > rec) {
-    pos[i] <- 'QB'
-  }
-  
-  else if (rush > pass & rush > rec) {
-    pos[i] <- 'RB'
-  }
-  
-  else if (rec > pass & rec > rush) {
-    pos[i] <- 'WR'
-  }
-  
-  else {
-    pos[i] <- 'UNK'
-  }
-}
-
 predictions %>%
-  mutate(Pos = pos) %>%
   filter(Pos != 'UNK') %>%
   group_by(Pos) %>%
   summarize(mean(sqrt(MSE)))
 ```
+
+```{r}
+predictions %>%
+  filter(Pos == 'QB') %>%
+  arrange(desc(fanPts)) %>%
+  head(20)
+
+predictions %>%
+  filter(Pos == 'RB') %>%
+  arrange(desc(fanPts)) %>%
+  head(10)
+
+predictions %>%
+  filter(Pos == 'WR') %>%
+  arrange(desc(fanPts)) %>%
+  head(10)
+```
+
 
