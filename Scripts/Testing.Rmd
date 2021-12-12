@@ -7,6 +7,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
+library(randomForest)
+library(tree)
 ```
 
 ```{r}
@@ -161,6 +163,13 @@ predictions <- data.frame(Player = pred_data$Player,
                           FL = FLPred)
 
 predictions[is.na(predictions)] <- 0
+
+for (i in 1:nrow(predictions)) {
+  if (predictions$Pos[i] %in% c('WR', 'RB')) {
+    predictions$PassInt[i] <- 0
+  }
+}
+
 predictions <- predictions %>%
   mutate(fanPts = as.vector(as.matrix(predictions %>% select(weights$Stat)) %*% weights$Pts))
 ```
@@ -177,9 +186,10 @@ for (i in 1:nrow(predictions)) {
 
 predictions <- predictions %>%
   mutate(MSE = player_mse) %>%
-  filter(!is.nan(MSE))
+  dplyr::filter(!is.nan(MSE))
+# predictions <- predictions[!is.nan(player_mse),]
 
-ggplot(predictions) +
+plt <- ggplot(predictions) +
   geom_histogram(aes(sqrt(MSE)), binwidth = .5) + 
   labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
        y = 'Count')
@@ -190,7 +200,7 @@ plt %>%
 plt
 ```
 
-```{r}
+```{r, message=FALSE}
 mse_results <- data.frame(Stat = c(weights$Stat, 'fanPts'), MSE = rep(NA, length(weights$Stat) + 1))
 
 for (stat in mse_results$Stat) {
@@ -221,7 +231,6 @@ mse_results
 ```{r}
 predictions %>%
   arrange(desc(fanPts)) %>%
-  select(c('Player', 'Pos', 'fanPts', 'MSE')) %>%
   write_csv('../Data/predFull.csv')
 
 predictions %>%
@@ -238,24 +247,24 @@ predictions %>%
 
 ```{r}
 predictions %>%
-  filter(Pos != 'UNK') %>%
+  dplyr::filter(Pos != 'UNK') %>%
   group_by(Pos) %>%
   summarize(mean(sqrt(MSE)))
 ```
 
 ```{r}
 predictions %>%
-  filter(Pos == 'QB') %>%
+  dplyr::filter(Pos == 'QB') %>%
   arrange(desc(fanPts)) %>%
   head(20)
 
 predictions %>%
-  filter(Pos == 'RB') %>%
+  dplyr::filter(Pos == 'RB') %>%
   arrange(desc(fanPts)) %>%
   head(10)
 
 predictions %>%
-  filter(Pos == 'WR') %>%
+  dplyr::filter(Pos == 'WR') %>%
   arrange(desc(fanPts)) %>%
   head(10)
 ```
