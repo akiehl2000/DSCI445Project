@@ -20,7 +20,7 @@ Read in the data:
 fileName <- '../Data/averages.csv'
 pred_data <- read_csv(fileName)
 
-fileName <- '../Data/masterDF[2021-2021].csv'
+fileName <- '../Data/masterDF[2021].csv'
 test_data <- read_csv(fileName) %>%
   select(-'...1')
 ```

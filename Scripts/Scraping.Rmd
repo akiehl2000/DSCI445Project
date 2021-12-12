@@ -278,6 +278,6 @@ master <- master %>%
   mutate(fanPts = as.vector(as.matrix(master[, weights$stat]) %*% weights$pts))
 
 master %>%
-  write.csv(paste('../Data/masterDF[', years2[1], '-', years2[length(years2)], '].csv', sep = ''))
+  write.csv(paste('../Data/masterDF[2021].csv', sep = ''))
 ```
 
