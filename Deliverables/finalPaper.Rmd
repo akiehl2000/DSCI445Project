@@ -9,3 +9,128 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
+
+# Introduction:
+
+- discuss what the project is
+- how we went about choosing the best models
+- what we used as train/test data
+
+# Passing Analysis
+
+Setting up the training data:
+
+Our response variables, those that had some form of fantasy point value, were `PassYds` (Passing Yards), `PassTD` (Passing Touchdowns), `PassInt` (Passing Interceptions) and `FL` (Fumbles Lost). All predictors that weren't related to throwing the ball were removed from the training dataset. Out of the remaining variables, `CMP` (Completions) were used to filter out non-quarterbacks in the dataset. Typically because most other positions don't throw the ball or if they do it's extremely rare so we deemed it a safe assumption to make as far as removing those players from the training data. Other predictors were removed due to multicolinearity. In this instance, CAY (Completed Air Yards) and YAC (Yards After Catch) were perfectly correlated and when these two variables were added together we would get the total passing yards for the quarterback on each play. We avoided having bias in our data by removing `PassYAC`, thus avoiding perfect correlation between our predictors. Lastly, the predictor variable `FirstDPass` (First Down Pass) contained NA values so for easy intuition and to avoid errors in the future we changed each NA value to 0. 
+
+Show the training data matrix:
+
+```{r}
+```
+
+Models
+
+Several models were used and each response variable was tested for train mean-squared error (MSE) in each model. These models include multiple linear regression (MLR), LASSO, Principle Component Regression/Analysis (PCR/PCA), Trees and Bagging. After each model was run, the resulting MSE was placed into a data-frame that stored all MSE values from every model for easy comparisons at the end to decide which model had the best train MSE for each respective response variable. The predictor variables were those seen in the above `train_data` data-frame minus the response variables.
+
+Linear Regression
+
+The first model used was Multiple Linear Regression. We split the data randomly into k-folds, 10 in this case and going forward, and used k-fold cross validation. We ran a for loop the length of k (10) holding out one fold and using the other nine as our training set for each of the linear regression models for each response variable. Four models were run with every iteration (4 response variables) until no folds were left to be tested on. I then predict the value of our response using whichever k-fold as our test set and calculate the MSE by subtracting the prediction value by the true value of the response and squaring the result. This was done for every model and the MSE values were stored into an empty data-frame and will be used later on.
+
+Show the MSE table for Linear Regression:
+
+```{r}
+```
+
+LASSO
+
+Each response variable was fit with a LASSO regression in hopes to lower MSE while shrinking insignificant predictors down to 0. 
+
+Show plots indicating elbows for LASSO
+
+```{r}
+```
+
+By randomly splitting the data into k-folds with k = 10, we can use one fold as the validation set. Each response is fitted, and the respective model is predicted against the validation set. The MSE is calculated for each k-fold and the mean is taken. The MSE was computed in a similar manner to that of Linear Regression. The resulting MSE values for each model are put into an empty data-frame that will be used later.
+
+Show MSE results for LASSO
+
+```{r}
+```
+
+PCA/PCR
+
+Before we can use PCR to get some predictive analysis for our responses, we perform Principle Component Analysis on our data to get a better understanding of the overall structure of our training data. The resulting summary table from our PCA shows us how many components were necessary to explain at least 90% of our variance, and follow that up with a scree plot to indicate a which principle component is the best for explaining enough variance, meanwhile keeping the complexity of the model to a minimum.
+
+Show summary(pca analysis) and scree plot
+
+```{r}
+```
+
+At x principle components, approximately 90% of our variance is explained which does make for difficult intuition as we can't visualize x-dimensional data:
+
+Afterwards, we calculate the PCA scores of each predictor variable to see which predictor has the greatest influence on each principle component. The graph is the best 2D representation of what is happening in several dimensions. It is very hard to conceptualize what is happening in PCA when more than three components are required to explain the majority of the variance.
+
+PCA scores table and biplot
+
+```{r}
+```
+
+Now that we have our PCA scores, we can use these scores to train our PCR models. Again, our training data is randomly split into k-folds, where k = 10, every fold is held out once to be used as the testing data. We then calculate MSE of each by pulling the true value of each response from the validation set and subtracting the predicted value from it, squaring it and taking the mean. These values were again stored in an empty data-frame containing all MSE values for each response variable for their respective PCR model. 
+
+PCR results matrix
+
+```{r}
+```
+
+Trees
+
+The next method used were trees. First, we fit an unpruned tree model to each of our response variables and by using the `cv.tree()` function, were able to get the optimal size for each tree. The red dot indicates the size of each tree. The plots and there response variables are as follows: `PassYds` (top left), `PassTD` (top right), `PassInt` (bottom left) and `FL` (bottom right).
+
+Show cv tree plots with ideal tree size for each model
+
+```{r}
+
+```
+
+Once optimal tree sizes were indicated, we pruned each tree to their respective sized and using the `prune.tree()` function we were able to run our original tree model again but using only the optimal amount of nodes. The trees for each response are below and follow the same order graphically as listed above.
+
+Plot decision tree for each model
+
+```{r}
+```
+
+Afterwards, we finally begin splitting the data up using k-folds with k = 10. Each model is trained with their optimal tree size and the MSE is calculated similarly to the previous models and placed in an empty data-frame containing all MSE values for each response variable for their respective tree model.
+
+Show the results matrix for tree models
+
+```{r}
+```
+
+The final method used for the passing statistics was bagging. Bagging provided by far the best results for some response variables which we will see. First, we started by once again splitting our data into k-folds with k = 10. Each response variable was run with each fold being used as the validation set once, and a bagging model was fit. Afterwards, using the `importance()` function, we could see which predictors were significant to the response variable and based off these results and new bagging model was fit with the most significant predictors only, having the insignificant ones removed from the model altogether. 
+
+For `PassYds`, each of the other response variables were taken out of the model along with `PassDrops`, `BadThrow`, `BadPer`, `Rate` and `YdsLost` as they weren't deemed significant. 
+
+For `PassInt`, each of the other response variables were taken out of the model along with `PassDrops`, `Sk`, `YACPerCmp`, `BadPer`, `PassAtt` and `YdsLost` as they weren't deemed significant. 
+
+For `PassTD`, each of the other response variables were taken out of the model along with `PassDrops`, `Sk`, `YACPerCmp`, `FirstDPassPer`, and `YdsLost` as they weren't deemed significant. 
+
+For `FL`, each of the other response variables were taken out of the model along with `PassDrops` as it wasn't deemed significant. 
+
+Show results for Bagging MSE
+
+```{r}
+```
+
+Results Matrix
+
+The resulting MSE values for each response variable were put into one matrix for easy comparisons so we could take the best model for each response and use that model to predict on the testing data set. The matrix is below:
+
+Results Matrix table
+
+```{r}
+```
+
+
+
+
+
+
