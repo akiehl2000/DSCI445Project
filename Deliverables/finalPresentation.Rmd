@@ -105,17 +105,18 @@ readRDS('../Tables/master.rds')
 Predictors: Tgt, RecLng, Fmb, FirstDRec, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT, RecBrkTkl, RecPerBr, RecDrop, DropPerRec, RecInt, Rat
 
 - Goal of simplicity and predictive accuracy
-- `RecYAC` dropped
 - Correlation matrix and VIF scores to identify multicollinearity (`FirstDRec`, `RecYBC`, `YBCPerR`, `YACPerR`, `DropPerRec`)
+- `RecYAC` dropped
 
-# Dimension Reduction and Variable Selection
+# Dimension Reduction
 
-- Best Subset -> 3-5 predictors
-- LASSO -> 5-10 predictors
-- PC regression -> 7-8 principal components
-- Pruned trees -> 2 terminal nodes for `RecTD` and 6-7 otherwise
-- Bagging and Random Forest -> 1 important variable for `RecTD` and 4-5 otherwise
-- `Tgt` and `Rat` predictors appear often
+- Dimension reduction techniques:
+  - Best Subset -> 3-5 predictors
+  - LASSO -> 5-10 predictors
+  - PC regression -> 7-8 principal components
+  - Pruned trees -> 2 terminal nodes for `RecTD` and 6-7 otherwise
+  - Bagging and Random Forest -> 1 important variable for `RecTD` and 4-5 otherwise
+  - `Tgt` and `Rat` predictors appear often
   
 # Receiving Results
 
@@ -183,20 +184,28 @@ text(model)
 Rushing Predictors: RushYds, RushTD, FL
 
 - Started out with a number of predictors but determined that these 3 were the most important in this case. 
+
 - When analyzing rushing data, we found that there are a lot of variables that are colinear. 
+
 - One example of a predictor that I did not end up needing is 'FirstDRush'. This variable does not lead to fantasy points and relates closely with 'RushYds'.
 
 # Rushing Analysis pt. 2
 
 - Machine Learning Models:
+
   - The models I ended up using were Muliple Linear Regression, Lasso, PCR, Bagging, and Boosting
+  
   - PCR ended up giving values that were not as useful for our rushing experimentation.
+  
   - MLR provided the best MSE values for RushTD and FL (Fumbles lost)
+  
   - Bagging gave the best value  for RushYds
+  
   - Thus these models were selected for final testing.
 
 # Rushing Analysis pt. 3
 
+Models:
 
 ```{r, echo=FALSE}
 m1 <- readRDS('../Models/rushYdsModel.rds')
@@ -205,11 +214,17 @@ plot(m1)
 
 # Fumbles Analysis
 
-- Three different models chosen for `FL` from three different predictor sets:
-  - MLR model using passing data: MSE=0.19
-  - Tree model using receiving data: MSE=0.03
-  - MLR model using rushing data: MSE=0.08
-- Best overall was a 2-node tree model using `Fmb` as a predictor
+- Fumbles lost is the count of fumbles a player has that result in a turnover.
+
+- Analyzing fumbles lost was cool because we were all building models for the same variable but using different predictors.
+
+- The best FL model for Receptions predictors was a Tree model with an MSE of .028
+
+- The best FL model for Passing predictors was a MLR model with an MSE of .191
+
+- The best FL model for Rushing predictors was a MLR model with an MSE of .084
+
+- As you can see overall the best was to predict fumbles lost in our data is to use the tree model for Rec data.
 
 # Validation
 
