@@ -8,8 +8,8 @@ output: html_document
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(GGally)
-library(dlookr)
+library(GGally) # ggpairs() function
+library(dlookr) # diagnose() function
 library(stats)
 library(factoextra)
 library(sail)
@@ -18,7 +18,7 @@ library(leaps)
 library(glmnet)
 library(tree)
 library(corrplot)
-library(regclass)
+library(regclass) #VIF() function
 library(gbm)
 library(knitr)
 library(pryr)
@@ -59,19 +59,25 @@ diagnose(train_data)
 
 # Exploratory 
 
-Exploratory coorelation matrix for four response variables of interest. 
+Exploratory correlation matrix and histograms for four response variables of interest. 
 ```{r}
 ggpairs(train_data[,c(2:4, 7)])
 ```
 
-Correlation matrix used to identify multicollinearity. Evidence of high correlation found between `FirstDRec` and `Tgt` (0.75), `RecYBC` and `FirstDRec` (0.77), `ADOT` and `YBCPerR` (0.86), and `DropPerRec` and `RecDrop` (0.84). 
+Correlation matrix and VIF scores used to identify multicollinearity. Evidence of high correlation found between `FirstDRec` and `Tgt` (0.75), `RecYBC` and `FirstDRec` (0.77), `ADOT` and `YBCPerR` (0.86), and `DropPerRec` and `RecDrop` (0.84). 
 ```{r}
-VIF(lm(Rec ~ . - RecYds - RecTD - FL, train_data))
+vif <- VIF(lm(Rec ~ . - RecYds - RecTD - FL, train_data)); vif
+vif %>%
+  kable(format = 'latex') %>%
+  saveRDS('../Tables/vifScores.rds')
 
 source("http://www.sthda.com/upload/rquery_cormat.r")
-rquery.cormat(train_data[,-c(2:4, 7)])$r
+View(rquery.cormat(train_data[,-c(2:4, 7)])$r)
+```
 
-model <- lm(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data)
+Removing `FirstDRec`, `RecYBC`, `YBCPerR`, `DropPerRec`, and `YACPerR` yielded reasonable VIF scores and a diagnostically semi-sound linear model. 
+```{r}
+model <- lm(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR - RecLng, train_data)
 VIF(model)
 summary(model)
 plot(model)
@@ -134,24 +140,24 @@ plot(train_data$YBCPerR, train_data$RecYds) # poly
 Best subset selection performed with `Rec` as response. A non-linear relationship with `RecLng` was explored but nothing significant was found. 
 ```{r}
 best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL, data = train_data, nvmax = 15)
-best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
+# best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
 best_subset_sum <- summary(best_subset)
 
-opt <- 5
+opt <- 8
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$cp)) + 
+  geom_line(aes(1:15, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$bic)) + 
+  geom_line(aes(1:15, best_subset_sum$bic)) + 
   geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$adjr2)) + 
+  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
   geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
@@ -1033,7 +1039,7 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
                       Bag = bag_results$MSE,
                       RF = rf_results$MSE); results
 
-results %>%
+results[1:3, ] %>%
   kable(format = 'latex') %>%
   saveRDS('../Tables/recResults.rds')
 
@@ -1098,6 +1104,8 @@ plt
 
 Save best models as .rds files.
 ```{r, warning=FALSE}
+set.seed(445)
+
 # Random forest model chosen for Rec
 randomForest(Rec ~ Tgt + FirstDRec + RecYAC + RecYBC + Rat, data = train_data, mtry = 2, ntree = 200) %>%
   saveRDS('../Models/recModel.rds')
