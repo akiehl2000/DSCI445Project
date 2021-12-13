@@ -23,7 +23,7 @@ library(pryr)
 
 ```{r}
 set.seed(445)
-pass_data = read_csv('./Data/masterDF[2018-2020].csv')
+pass_data = read_csv('../Data/masterDF[2018-2020].csv')
 
 pass_data = pass_data %>%
   dplyr::select(-1)
@@ -259,7 +259,7 @@ summary(pca_model)
 
 pcplot = fviz_eig(pca_model)
 pcplot %>%
-  saveRDS('./Plots/pcplot.rds')
+  saveRDS('../Plots/pcplot.rds')
 
 pca_scores = data.frame(pca_model$x)
 data.frame(pca_model$rotation[, 1:3])
@@ -381,7 +381,7 @@ ydstree %<a-% {
   text(tree_passyds)
 }
 ydstree %>%
-  saveRDS('./Plots/ydstree.rds')
+  saveRDS('../Plots/ydstree.rds')
 
 tree_mse = rep(NA,K)
 
@@ -423,7 +423,7 @@ tdtree %<a-% {
 }
 
 tdtree %>%
-  saveRDS('./Plots/tdtree.rds')
+  saveRDS('../Plots/tdtree.rds')
 
 tree_mse = rep(NA,K)
 
@@ -465,7 +465,7 @@ inttree %<a-% {
 }
 
 inttree %>%
-  saveRDS('./Plots/inttree.rds')
+  saveRDS('../Plots/inttree.rds')
 
 tree_mse = rep(NA,K)
 
@@ -507,7 +507,7 @@ fltree %<a-% {
 }
 
 fltree %>%
-  saveRDS('./Plots/fltree.rds')
+  saveRDS('../Plots/fltree.rds')
 
 tree_mse = rep(NA,K)
 
@@ -603,7 +603,7 @@ master = data_frame(Model = c("PassYds", "PassInt", "PassTD", "FL"),
                     Tree = tree_results$MSE,
                     Bagging = bagging_results$MSE)
 master %>%
-  saveRDS('./Tables/master.rds')
+  saveRDS('../Tables/master.rds')
 
 master
 ```
@@ -613,17 +613,17 @@ Save Models as .rds files
 ```{r}
 # Bagging will be used for PassYds
 randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Sk - FirstDPassPer, data = train_data, mtry = ncol(train_data)-10, importance = TRUE) %>%
-  saveRDS('./Models/passydsModel.rds')
+  saveRDS('../Models/passydsModel.rds')
 
 # Linear Regression will be used for PassTD
 lm(PassTD ~ . - PassYds - PassInt - FL, data = train_data) %>%
-  saveRDS('./Models/passtdModel.rds')
+  saveRDS('../Models/passtdModel.rds')
 
 # Linear Regression will be used for FL
 lm(FL ~ . - PassTD - PassInt - PassYds, data = train_data) %>%
-  saveRDS('./Models/flModel.rds')
+  saveRDS('../Models/flModel.rds')
 
 # Bagging will be used for PassInt
 randomForest(PassInt ~ . - PassTD - PassYds - FL, data = train_data, mtry = ncol(train_data)-4, importance = TRUE) %>%
-  saveRDS('./Models/intModel.rds')
+  saveRDS('../Models/intModel.rds')
 ```

@@ -7,6 +7,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
+library(randomForest)
+library(tree)
 ```
 
 ```{r}
@@ -15,10 +17,10 @@ set.seed(445)
 
 Read in the data:
 ```{r, message=FALSE, warning=FALSE}
-fileName <- './Data/averages.csv'
+fileName <- '../Data/averages.csv'
 pred_data <- read_csv(fileName)
 
-fileName <- './Data/masterDF[2021-2021].csv'
+fileName <- '../Data/masterDF[2021].csv'
 test_data <- read_csv(fileName) %>%
   select(-'...1')
 ```
@@ -57,7 +59,7 @@ weights <- data.frame(Stat = c('PassYds', 'PassTD', 'PassInt', 'RushYds', 'RushT
 
 weights %>% 
   kable(format = 'latex') %>%
-  write_rds('./Tables/fanPts.rds')
+  write_rds('../Tables/fanPts.rds')
 ```
 
 ```{r}
@@ -72,53 +74,53 @@ removeNegatives <- function(x) {
 
 `PassYds` model:
 ```{r}
-passYdsPred <- readRDS('./Models/passydsModel.rds') %>%
+passYdsPred <- readRDS('../Models/passydsModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
 ```
 `PassTD` model:
 ```{r}
-passTDPred <- readRDS('./Models/passtdModel.rds') %>%
+passTDPred <- readRDS('../Models/passtdModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
 ```
 `PassInt` model:
 ```{r}
-passIntPred <- readRDS('./Models/intModel.rds') %>%
+passIntPred <- readRDS('../Models/intModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
 ```
 `FL` model (pass):
 ```{r}
-FLPred <- readRDS('./Models/flModel.rds') %>%
+FLPred <- readRDS('../Models/flModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
 ```
 `RushYds` model:
 ```{r}
-rushYdsPred <- readRDS('./Models/rushYdsModel.rds') %>%
+rushYdsPred <- readRDS('../Models/rushYdsModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
 ```
 `RushTD` model:
 ```{r}
-rushTDPred <- readRDS('./Models/rushTDModel.rds') %>%
+rushTDPred <- readRDS('../Models/rushTDModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
 ```
 `FL` model (rush):
 ```{r}
-FLPred <- readRDS('./Models/rushFLModel.rds')
+FLPred <- readRDS('../Models/rushFLModel.rds')
 ```
 `Rec` model:
 ```{r}
-recPred <- readRDS('./Models/recModel.rds') %>%
+recPred <- readRDS('../Models/recModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives() %>%
@@ -126,21 +128,21 @@ recPred <- readRDS('./Models/recModel.rds') %>%
 ```
 `RecYds` model:
 ```{r}
-recYdsPred <- readRDS('./Models/recYdsModel.rds') %>%
+recYdsPred <- readRDS('../Models/recYdsModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
 ```
 `RecTD` model:
 ```{r}
-recTDPred <- readRDS('./Models/recTDModel.rds') %>%
+recTDPred <- readRDS('../Models/recTDModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
 ```
 `FL` model (receiving):
 ```{r}
-FLPred <- readRDS('./Models/FLModel.rds') %>%
+FLPred <- readRDS('../Models/FLModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
   removeNegatives()
@@ -161,6 +163,13 @@ predictions <- data.frame(Player = pred_data$Player,
                           FL = FLPred)
 
 predictions[is.na(predictions)] <- 0
+
+for (i in 1:nrow(predictions)) {
+  if (predictions$Pos[i] %in% c('WR', 'RB')) {
+    predictions$PassInt[i] <- 0
+  }
+}
+
 predictions <- predictions %>%
   mutate(fanPts = as.vector(as.matrix(predictions %>% select(weights$Stat)) %*% weights$Pts))
 ```
@@ -177,20 +186,21 @@ for (i in 1:nrow(predictions)) {
 
 predictions <- predictions %>%
   mutate(MSE = player_mse) %>%
-  filter(!is.nan(MSE))
+  dplyr::filter(!is.nan(MSE))
+# predictions <- predictions[!is.nan(player_mse),]
 
-ggplot(predictions) +
+plt <- ggplot(predictions) +
   geom_histogram(aes(sqrt(MSE)), binwidth = .5) + 
   labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
        y = 'Count')
 
 plt %>%
-  saveRDS('./Plots/histMSE.rds')
+  saveRDS('../Plots/histMSE.rds')
 
 plt
 ```
 
-```{r}
+```{r, message=FALSE}
 mse_results <- data.frame(Stat = c(weights$Stat, 'fanPts'), MSE = rep(NA, length(weights$Stat) + 1))
 
 for (stat in mse_results$Stat) {
@@ -213,7 +223,7 @@ for (stat in mse_results$Stat) {
 
 mse_results %>%
   kable(format = 'latex') %>%
-  saveRDS('./Tables/MSE.rds')
+  saveRDS('../Tables/MSE.rds')
 
 mse_results
 ```
@@ -221,15 +231,14 @@ mse_results
 ```{r}
 predictions %>%
   arrange(desc(fanPts)) %>%
-  select(c('Player', 'Pos', 'fanPts', 'MSE')) %>%
-  write_csv('./Data/predFull.csv')
+  write_csv('../Data/predFull.csv')
 
 predictions %>%
   arrange(desc(fanPts)) %>%
   select(c('Player', 'Pos', 'fanPts', 'MSE')) %>%
   head(11) %>%
   kable(format = 'latex') %>%
-  saveRDS('./Tables/predPartial.rds')
+  saveRDS('../Tables/predPartial.rds')
 
 predictions %>%
   arrange(desc(fanPts)) %>%
@@ -238,24 +247,24 @@ predictions %>%
 
 ```{r}
 predictions %>%
-  filter(Pos != 'UNK') %>%
+  dplyr::filter(Pos != 'UNK') %>%
   group_by(Pos) %>%
   summarize(mean(sqrt(MSE)))
 ```
 
 ```{r}
 predictions %>%
-  filter(Pos == 'QB') %>%
+  dplyr::filter(Pos == 'QB') %>%
   arrange(desc(fanPts)) %>%
   head(20)
 
 predictions %>%
-  filter(Pos == 'RB') %>%
+  dplyr::filter(Pos == 'RB') %>%
   arrange(desc(fanPts)) %>%
   head(10)
 
 predictions %>%
-  filter(Pos == 'WR') %>%
+  dplyr::filter(Pos == 'WR') %>%
   arrange(desc(fanPts)) %>%
   head(10)
 ```
