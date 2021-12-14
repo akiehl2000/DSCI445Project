@@ -11,17 +11,17 @@ library(tidyverse)
 library(GGally) # ggpairs() function
 library(dlookr) # diagnose() function
 library(stats)
-library(factoextra)
+library(factoextra) # fivz_eig() function
 library(sail)
-library(caret)
-library(leaps)
-library(glmnet)
-library(tree)
-library(corrplot)
+library(caret) 
+library(leaps) # best subset selection
+library(glmnet) # LASSO regression
+library(tree) # decision tree
+library(corrplot) 
 library(regclass) #VIF() function
-library(gbm)
-library(knitr)
-library(pryr)
+library(gbm) # boosting, bagging, and random forest
+library(knitr) # kable() function
+library(pryr) # save plots
 ```
 
 For reproducibility:
@@ -52,7 +52,8 @@ for (i in 1:N) {
   }
 }
 ```
-Check dataframe for integrity. 
+
+Check data frame for integrity. 
 ```{r}
 diagnose(train_data)
 ```
@@ -72,12 +73,22 @@ vif %>%
   saveRDS('../Tables/vifScores.rds')
 
 source("http://www.sthda.com/upload/rquery_cormat.r")
-View(rquery.cormat(train_data[,-c(2:4, 7)])$r)
+rquery.cormat(train_data[,-c(2:4, 7)])$r
 ```
 
-Removing `FirstDRec`, `RecYBC`, `YBCPerR`, `DropPerRec`, and `YACPerR` yielded reasonable VIF scores and a diagnostically semi-sound linear model. 
+Removing `RecLng`, FirstDRec`, `RecYBC`, `YBCPerR`, `DropPerRec`, and `YACPerR` yielded reasonable VIF scores and diangostically semi-sound models, although there is definitely evidence of non-linearity or violated assumptions. 
 ```{r}
 model <- lm(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR - RecLng, train_data)
+VIF(model)
+summary(model)
+plot(model)
+
+model <- lm(RecYds ~ . - Rec - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR - RecLng, train_data)
+VIF(model)
+summary(model)
+plot(model)
+
+model <- lm(RecTD ~ . - Rec - RecYds - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR - RecLng, train_data)
 VIF(model)
 summary(model)
 plot(model)
@@ -123,41 +134,28 @@ mlr_results$MSE[which(mlr_results$Model == 'FL')] <- round(mean(mlr_mse$mse4), 3
 mlr_results
 ```
 
-Rec: Tgt, RecLng, FirstDRec, RecDrop, Rat
-RecYds: Tgt, RecLng, RecYBC, YBCPerR, RecYAC, YACPerR, ADOT, RecDrop, Rat
-RecTD: RecYBC, ADOT, RecBrkTkl, Rat
-FL: Fmb
-```{r}
-plot(train_data$Tgt, train_data$Rec)
-plot(train_data$RecLng, train_data$Rec) # poly
-plot(train_data$RecLng, train_data$RecYds) #poly
-plot(train_data$YBCPerR, train_data$RecYds) # poly
-```
-
-
 # Best Subset Selection
 
 Best subset selection performed with `Rec` as response. A non-linear relationship with `RecLng` was explored but nothing significant was found. 
 ```{r}
-best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL, data = train_data, nvmax = 15)
-# best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
+best_subset <- regsubsets(Rec ~ . - RecYds - RecTD - FL - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 9)
 best_subset_sum <- summary(best_subset)
 
-opt <- 8
+opt <- 4
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$cp)) + 
+  geom_line(aes(1:9, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$bic)) + 
+  geom_line(aes(1:9, best_subset_sum$bic)) + 
   geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:15, best_subset_sum$adjr2)) + 
+  geom_line(aes(1:9, best_subset_sum$adjr2)) + 
   geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
@@ -177,27 +175,26 @@ for (k in 1:K) {
 recMSE <- round(mean(best_subset_mse), 3)
 ```
 
-Best subset selection performed with `RecYds` as response. Some polynomial terms included. 
+Best subset selection performed with `RecYds` as response.
 ```{r}
-best_subset <- regsubsets(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, nvmax = 15)
-best_subset <- regsubsets(RecYds ~ . + I(RecLng^2) + I(RecYBC^2) - Rec - RecTD - FL - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
+best_subset <- regsubsets(RecYds ~ . - Rec - RecTD - FL - RecLng - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 9)
 best_subset_sum <- summary(best_subset)
 
-opt <- 4
+opt <- 3
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$cp)) + 
+  geom_line(aes(1:9, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$bic)) + 
+  geom_line(aes(1:9, best_subset_sum$bic)) + 
   geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$adjr2)) + 
+  geom_line(aes(1:9, best_subset_sum$adjr2)) + 
   geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
@@ -219,25 +216,24 @@ recYdsMSE <- round(mean(best_subset_mse), 3)
 
 Best subset selection performed with `RecTD` as response. 
 ```{r}
-best_subset <- regsubsets(RecTD ~ . - Rec - RecYds - FL, data = train_data, nvmax = 15)
-best_subset <- regsubsets(RecTD ~ . - Rec - RecYds - FL - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
+best_subset <- regsubsets(RecTD ~ . - Rec - RecYds - FL - RecLng - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 9)
 best_subset_sum <- summary(best_subset)
 
 opt <- 3
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$cp)) + 
+  geom_line(aes(1:9, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$bic)) + 
+  geom_line(aes(1:9, best_subset_sum$bic)) + 
   geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$adjr2)) + 
+  geom_line(aes(1:9, best_subset_sum$adjr2)) + 
   geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
@@ -259,25 +255,24 @@ recTDMSE <- round(mean(best_subset_mse), 3)
 
 Best subset selection performed with `FL` as response. 
 ```{r}
-best_subset <- regsubsets(FL ~ . - Rec - RecYds - RecTD, data = train_data, nvmax = 15)
-best_subset <- regsubsets(FL ~ . - Rec - RecYds - RecTD - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 10)
+best_subset <- regsubsets(FL ~ . - Rec - RecYds - RecTD - RecLng  - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data, nvmax = 9)
 best_subset_sum <- summary(best_subset)
 
 opt <- 4
 
 par(mfrow=c(3,1))
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$cp)) + 
+  geom_line(aes(1:9, best_subset_sum$cp)) + 
   geom_point(aes(opt, best_subset_sum$cp[opt]), color = 'red') +
   labs(title='Mallows\' Cp',x='Predictors',y='Value')
 
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$bic)) + 
+  geom_line(aes(1:9, best_subset_sum$bic)) + 
   geom_point(aes(opt, best_subset_sum$bic[opt]), color = 'red') + 
   labs(title='BIC', x='Predictors', y='Value')
 
 ggplot() + 
-  geom_line(aes(1:10, best_subset_sum$adjr2)) + 
+  geom_line(aes(1:9, best_subset_sum$adjr2)) + 
   geom_point(aes(opt, best_subset_sum$adjr2[opt]), color = 'red') + 
   labs(title='Adjusted R^2', x='Predictors', y='Value')
 
@@ -312,9 +307,9 @@ best_subset_results
 
 # LASSO Regression
 
-Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0.002$ and no predictors were excluded. However, with negligible penalty to MSE, $\lambda\approx0.12$ can be used and a much simpler model can be obtained. This selected model uses eight predictors and has $MSE=0.53$. 
+LASSO regression performed with `Rec` as the response. 
 ```{r}
-x <- model.matrix(Rec ~ . - RecYds - RecTD - FL, train_data)
+x <- model.matrix(Rec ~ . - RecYds - RecTD - FL - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data)
 y <- train_data$Rec
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
@@ -330,12 +325,12 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  x <- model.matrix(Rec ~ . - RecYds - RecTD - FL, trn)
+  x <- model.matrix(Rec ~ . - RecYds - RecTD - FL - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, trn)
   y <- trn$Rec
   
-  lasso_model <- glmnet(x, y, lambda = exp(-2))
+  lasso_model <- glmnet(x, y, lambda = exp(-1))
   
-  pred_x <- model.matrix(Rec ~ . - RecYds - RecTD - FL, vld)
+  pred_x <- model.matrix(Rec ~ . - RecYds - RecTD - FL - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, vld)
   pred <- round(predict(lasso_model, pred_x))
   
   lasso_mse[k] <- mean((vld$Rec - pred)^2)
@@ -344,9 +339,9 @@ for (k in 1:K) {
 recMSE <- round(mean(lasso_mse), 3)
 ```
 
-Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0.74$ and no predictors were excluded. However, with negligible penalty to MSE, $\lambda\approx2.72$ can be used and a much simpler model can be obtained. This selected model uses four predictors and has $MSE=12.9$. 
+LASSO regression performed with `RecYds` as the response. 
 ```{r}
-x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecYAC, train_data)
+x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecLng - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, train_data)
 y <- train_data$RecYds
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
@@ -362,12 +357,12 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecYAC, trn)
+  x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecLng - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, trn)
   y <- trn$RecYds
   
   lasso_model <- glmnet(x, y, lambda = exp(1))
   
-  pred_x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecYAC, vld)
+  pred_x <- model.matrix(RecYds ~ . - Rec - RecTD - FL - RecLng - FirstDRec - RecYAC - YBCPerR - DropPerRec - YACPerR, vld)
   pred <- round(predict(lasso_model, pred_x))
   
   lasso_mse[k] <- mean((vld$RecYds - pred)^2)
@@ -376,9 +371,9 @@ for (k in 1:K) {
 recYdsMSE <- round(mean(lasso_mse), 3)
 ```
 
-Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0$ and no predictors we excluded. However, with negligible penalty to MSE, $\lambda\approx0.007$ can be used and a much simpler model can be obtained. This selected model uses twelve predictors and has $MSE=0.11$. 
+LASSO regression performed with `RecTD` as the response. 
 ```{r}
-x <- model.matrix(RecTD ~ . - Rec - RecYds - FL, train_data)
+x <- model.matrix(RecTD ~ . - Rec - RecYds - FL - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data)
 y <- train_data$RecTD
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
@@ -395,12 +390,12 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  x <- model.matrix(RecTD ~ . - Rec - RecYds - FL, trn)
+  x <- model.matrix(RecTD ~ . - Rec - RecYds - FL - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, trn)
   y <- trn$RecTD
   
-  lasso_model <- glmnet(x, y, lambda = exp(-5))
+  lasso_model <- glmnet(x, y, lambda = exp(-4))
   
-  pred_x <- model.matrix(RecTD ~ . - Rec - RecYds - FL, vld)
+  pred_x <- model.matrix(RecTD ~ . - Rec - RecYds - FL - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, vld)
   pred <- round(predict(lasso_model, pred_x))
   
   lasso_mse[k] <- mean((vld$RecTD - pred)^2)
@@ -409,9 +404,9 @@ for (k in 1:K) {
 recTDMSE <- round(mean(lasso_mse), 3)
 ```
 
-Based on a 10-fold cross validated LASSO model, MSE was minimized at $\lambda\approx0$ and no predictors we excluded. However, with negligible penalty to MSE, $\lambda\approx0.05$ can be used and a much simpler model can be obtained. This selected model uses one predictor and has $MSE=0.02$. 
+LASSO regression performed with `FL` as the response. 
 ```{r}
-x <- model.matrix(FL ~ . - Rec - RecYds - RecTD, train_data)
+x <- model.matrix(FL ~ . - Rec - RecYds - RecTD - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, train_data)
 y <- train_data$FL
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
@@ -427,12 +422,12 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  x <- model.matrix(FL ~ . - Rec - RecYds - RecTD, trn)
+  x <- model.matrix(FL ~ . - Rec - RecYds - RecTD - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, trn)
   y <- trn$FL
   
-  lasso_model <- glmnet(x, y, lambda = exp(-3))
+  lasso_model <- glmnet(x, y, lambda = exp(-4))
   
-  pred_x <- model.matrix(FL ~ . - Rec - RecYds - RecTD, vld)
+  pred_x <- model.matrix(FL ~ . - Rec - RecYds - RecTD - RecLng - FirstDRec - RecYBC - YBCPerR - DropPerRec - YACPerR, vld)
   pred <- round(predict(lasso_model, pred_x))
   
   lasso_mse[k] <- mean((vld$FL - pred)^2)
@@ -460,18 +455,16 @@ Principal component analysis perfromed on training data.
 pca_model <- prcomp(train_data[, -c(2:4, 7)], center = TRUE, scale = TRUE)
 summary(pca_model)
 ```
+
 Percentage of total variance explained by each principal component. 
 ```{r}
 fviz_eig(pca_model)
 ```
+
 Principal component loading matrix. 
 ```{r}
 pca_scores <- data.frame(pca_model$x)
-data.frame(pca_model$rotation[, 1:7])
-```
-Principal component biplot for PC1 and PC2.
-```{r}
-# biplot(pca_model)
+data.frame(pca_model$rotation[, 1:8])
 ```
 
 # Principal Components Regression
@@ -502,6 +495,7 @@ ggplot(results) +
 
 recMSE <- round(results$mse[which(results$pc == 7)], 3)
 ```
+
 Principal components regression performed on the `RecYds` variable. 
 ```{r}
 pca_train <- pca_scores %>%
@@ -528,6 +522,7 @@ ggplot(results) +
 
 recYdsMSE <- round(results$mse[which(results$pc == 7)], 3)
 ```
+
 Principal components regression performed on the `RecTD` variable. 
 ```{r}
 pca_train <- pca_scores %>%
@@ -554,6 +549,7 @@ ggplot(results) +
 
 recTDMSE <- round(results$mse[which(results$pc == 8)], 3)
 ```
+
 Principal components regression performed on the `FL` variable. 
 ```{r}
 pca_train <- pca_scores %>%
@@ -600,13 +596,15 @@ Tree model built to predict `Rec` variable.
 tree_model <- tree(Rec ~ . - RecYds - RecTD - FL, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
+opt <- 7
+
 ggplot() +
   geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
-  geom_point(aes(5, cv_tree_model$dev[which(cv_tree_model$size == 5)]), color = 'red') +
+  geom_point(aes(opt, cv_tree_model$dev[which(cv_tree_model$size == opt)]), color = 'red') +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
 
-tree_model <- prune.tree(tree_model, best = '5')
+tree_model <- prune.tree(tree_model, best = as.character(opt))
 summary(tree_model)
 
 plot(tree_model)
@@ -618,7 +616,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  tree_model <- prune.tree(tree(Rec ~ . - RecYds - RecTD - FL, trn), best = '5')
+  tree_model <- prune.tree(tree(Rec ~ . - RecYds - RecTD - FL, trn), best = as.character(opt))
   
   pred <- round(predict(tree_model, vld))
   
@@ -627,18 +625,21 @@ for (k in 1:K) {
 
 recMSE <- round(mean(tree_mse), 3)
 ```
+
 Tree model built to predict `RecYds` variable. 
 ```{r}
 tree_model <- tree(RecYds ~ . - Rec - RecTD - FL - RecYAC, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
+opt <- 7
+
 ggplot() +
   geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
-  geom_point(aes(7, cv_tree_model$dev[which(cv_tree_model$size == 7)]), color = 'red') +
+  geom_point(aes(opt, cv_tree_model$dev[which(cv_tree_model$size == opt)]), color = 'red') +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
 
-tree_model <- prune.tree(tree_model, best = '7')
+tree_model <- prune.tree(tree_model, best = as.character(opt))
 summary(tree_model)
 
 plot(tree_model)
@@ -650,7 +651,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  tree_model <- prune.tree(tree(RecYds ~ . - Rec - RecTD - FL - RecYAC, trn), best = '7')
+  tree_model <- prune.tree(tree(RecYds ~ . - Rec - RecTD - FL - RecYAC, trn), best = as.character(opt))
   
   pred <- round(predict(tree_model, vld))
   
@@ -659,18 +660,21 @@ for (k in 1:K) {
 
 recYdsMSE <- round(mean(tree_mse), 3)
 ```
+
 Tree model built to predict `RecTD` variable. 
 ```{r}
 tree_model <- tree(RecTD ~ . - Rec - RecYds - FL, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
+opt <- 2
+
 ggplot() +
   geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
-  geom_point(aes(2, cv_tree_model$dev[which(cv_tree_model$size == 2)]), color = 'red') +
+  geom_point(aes(opt, cv_tree_model$dev[which(cv_tree_model$size == opt)]), color = 'red') +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
 
-tree_model <- prune.tree(tree_model, best = '2')
+tree_model <- prune.tree(tree_model, best = as.character(opt))
 summary(tree_model)
 
 plot(tree_model)
@@ -682,7 +686,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  tree_model <- prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, trn), best = '2')
+  tree_model <- prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, trn), best = as.character(opt))
   
   pred <- round(predict(tree_model, vld))
   
@@ -691,18 +695,21 @@ for (k in 1:K) {
 
 recTDMSE <- round(mean(tree_mse), 3)
 ```
+
 Tree model built to predict `FL` variable. 
 ```{r}
 tree_model <- tree(FL ~ . - Rec - RecYds - RecTD, train_data)
 cv_tree_model <- cv.tree(tree_model)
 
+opt <- 2
+
 ggplot() +
   geom_line(aes(cv_tree_model$size, cv_tree_model$dev)) +
-  geom_point(aes(2, cv_tree_model$dev[which(cv_tree_model$size == 2)]), color = 'red') +
+  geom_point(aes(opt, cv_tree_model$dev[which(cv_tree_model$size == opt)]), color = 'red') +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title='CV Decision Tree Deviance', x='Terminal Nodes', y='Error')
 
-tree_model <- prune.tree(tree_model, best = '2')
+tree_model <- prune.tree(tree_model, best = as.character(opt))
 summary(tree_model)
 
 plot(tree_model)
@@ -714,7 +721,7 @@ for (k in 1:K) {
   trn <- train_data[folds != k,]
   vld <- train_data[folds == k,]
   
-  tree_model <- prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, trn), best = '2')
+  tree_model <- prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, trn), best = as.character(opt))
   
   pred <- round(predict(tree_model, vld))
   
@@ -723,6 +730,7 @@ for (k in 1:K) {
 
 FLMSE <- round(mean(tree_mse), 3)
 ```
+
 10-fold cross validation pruned tree MSEs:
 ```{r}
 tree_results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'), MSE = rep(NA, 4))
@@ -765,6 +773,7 @@ ggplot(results) +
 
 recMSE <- round(results$MSE[which(results$MSE == min(results$MSE))], 3)
 ```
+
 Boosted tree model to predict `RecYds` variable.
 ```{r, warning=FALSE, message=FALSE}
 results <- data.frame(lambda = seq(0, .5, length.out = 5), MSE = rep(NA, 5))
@@ -863,7 +872,19 @@ boost_results
 
 # Bagging
 
+Bagged tree model to predict `Rec`. 
 ```{r}
+model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = train_data, mtry = 15, ntree = 100)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Bagging', y = 'Importance')
+
 mse <- rep(NA, K)
 
 for (k in 1:K) {
@@ -880,7 +901,19 @@ for (k in 1:K) {
 recMSE <- round(mean(mse), 3)
 ```
 
+Bagged tree model to predict `RecYds`. 
 ```{r}
+model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, mtry = 14, ntree = 100)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Bagging', y = 'Importance')
+
 mse <- rep(NA, K)
 
 for (k in 1:K) {
@@ -897,7 +930,19 @@ for (k in 1:K) {
 recYdsMSE <- round(mean(mse), 3)
 ```
 
+Bagged tree model to predict `RecTD`. 
 ```{r, warning=FALSE}
+model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = train_data, mtry = 15, ntree = 100)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Bagging', y = 'Importance')
+
 mse <- rep(NA, K)
 
 for (k in 1:K) {
@@ -914,7 +959,19 @@ for (k in 1:K) {
 recTDMSE <- round(mean(mse), 3)
 ```
 
+Bagged tree model to predict `FL`. 
 ```{r, warning=FALSE}
+model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = train_data, mtry = 15, ntree = 100)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Bagging', y = 'Importance')
+
 mse <- rep(NA, K)
 
 for (k in 1:K) {
@@ -945,7 +1002,19 @@ bag_results
 
 # Random Forest
 
+Random forest model to predict `Rec`. 
 ```{r}
+model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = train_data, mtry = 4, ntree = 100)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Random Forest', y = 'Importance')
+
 mse <- rep(NA, K)
 
 for (k in 1:K) {
@@ -962,7 +1031,19 @@ for (k in 1:K) {
 recMSE <- round(mean(mse), 3)
 ```
 
+Random forest model to predict `RecYds`. 
 ```{r}
+model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, mtry = 4, ntree = 100)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Random Forest', y = 'Importance')
+
 mse <- rep(NA, K)
 
 for (k in 1:K) {
@@ -979,7 +1060,19 @@ for (k in 1:K) {
 recYdsMSE <- round(mean(mse), 3)
 ```
 
+Random forest model to predict `RecTD`. 
 ```{r, warning=FALSE}
+model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = train_data, mtry = 4, ntree = 100)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Random Forest', y = 'Importance')
+
 mse <- rep(NA, K)
 
 for (k in 1:K) {
@@ -996,7 +1089,19 @@ for (k in 1:K) {
 recTDMSE <- round(mean(mse), 3)
 ```
 
+Random forest model to predict `FL`. 
 ```{r, warning=FALSE}
+model <- randomForest(FL ~ . - Rec - RecYds - RecTD - FL, data = train_data, mtry = 4, ntree = 100)
+import <- importance(model)
+
+data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
+  arrange(desc(Purity)) %>%
+  mutate(Var = factor(Var, levels = Var)) %>%
+  ggplot() +
+  geom_col(aes(Var, Purity)) + 
+  theme(axis.text.x = element_text(angle = 45)) +
+  labs(title = 'Variable Selection with Random Forest', y = 'Importance')
+
 mse <- rep(NA, K)
 
 for (k in 1:K) {
@@ -1052,73 +1157,23 @@ results[1:3, c(1, 7:9)] %>%
   saveRDS('../Tables/recResultsEnd.rds')
 ```
 
-```{r}
-model <- randomForest(Rec ~ . - RecYds - RecTD - FL, data = train_data, mtry = 4, ntree = 10)
-import <- importance(model)
-
-data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
-  arrange(desc(Purity)) %>%
-  mutate(Var = factor(Var, levels = Var)) %>%
-  ggplot() +
-  geom_col(aes(Var, Purity)) + 
-  theme(axis.text.x = element_text(angle = 45)) +
-  labs(title = 'Variable Selection with Random Forest', y = 'Importance') %>%
-  saveRDS('../Plots/recPlot.rds')
-
-model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, mtry = 14, ntree = 10)
-import <- importance(model)
-
-data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
-  arrange(desc(Purity)) %>%
-  mutate(Var = factor(Var, levels = Var)) %>%
-  ggplot() +
-  geom_col(aes(Var, Purity)) + 
-  theme(axis.text.x = element_text(angle = 45)) +
-  labs(title = 'Variable Selection with Bagging', y = 'Importance') %>%
-  saveRDS('../Plots/recYdsPlot.rds')
-
-model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = train_data, mtry = 15, ntree = 10)
-import <- importance(model)
-
-data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
-  arrange(desc(Purity)) %>%
-  mutate(Var = factor(Var, levels = Var)) %>%
-  ggplot() +
-  geom_col(aes(Var, Purity)) + 
-  theme(axis.text.x = element_text(angle = 45)) +
-  labs()
-
-model <- prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2')
-
-plt %<a-% {
-  plot(model)
-  text(model)
-}
-
-plt %>%
-  saveRDS('../Plots/recTDPlot.rds')
-
-plt
-```
-
-
-Save best models as .rds files.
+Save trained best models for testing. 
 ```{r, warning=FALSE}
 set.seed(445)
 
 # Random forest model chosen for Rec
-randomForest(Rec ~ Tgt + FirstDRec + RecYAC + RecYBC + Rat, data = train_data, mtry = 2, ntree = 200) %>%
+randomForest(Rec ~ Tgt + FirstDRec + RecYAC + RecYBC, data = train_data, mtry = 2, ntree = 200) %>%
   saveRDS('../Models/recModel.rds')
 
 # Bagged tree model chosen for RecYds
 randomForest(RecYds ~ RecYBC + FirstDRec + RecLng + YACPerR, data = train_data, mtry = 4, ntree = 200) %>%
   saveRDS('../Models/recYdsModel.rds')
 
-# Decision tree model chosen for RecTD
-prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2') %>%
-  saveRDS('../Models/recTDModel.rds')
+# Bagged tree model chosen for RecTD
+randomForest(RecTD ~ Rat, data = train_data, mtry = 1, ntree = 200) %>%
+  saveRDS('../Models/recYdsModel.rds')
 
 # Decision tree model chosen for FL
-prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, train_data), best = '2') %>%
+prune.tree(tree(FL ~ Fmb, train_data), best = '2') %>%
   saveRDS('../Models/recFLModel.rds')
 ```
