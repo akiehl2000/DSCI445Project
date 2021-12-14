@@ -8,6 +8,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(png)
 ```
 
 # Introduction:
@@ -24,7 +25,7 @@ Our response variables, those that had some form of fantasy point value, were `P
 
 Show the training data matrix:
 
-```{r}
+```{r, echo=FALSE}
 readRDS('../Tables/train.rds')
 ```
 
@@ -38,7 +39,7 @@ The first model used was Multiple Linear Regression. We split the data randomly 
 
 Show the MSE table for Linear Regression:
 
-```{r}
+```{r, echo=FALSE}
 readRDS('../Tables/MLRResults.rds')
 ```
 
@@ -50,7 +51,7 @@ Each response variable was fit with a LASSO regression in hopes to lower MSE whi
 
 Show plots indicating elbows for LASSO
 
-```{r}
+```{r, echo=FALSE}
 
 ```
 
@@ -58,7 +59,7 @@ By randomly splitting the data into k-folds with k = 10, we can use one fold as 
 
 Show MSE results for LASSO
 
-```{r}
+```{r, echo=FALSE}
 readRDS('../Tables/LASSOPass.rds')
 ```
 
@@ -68,7 +69,7 @@ Before we can use PCR to get some predictive analysis for our responses, we perf
 
 Show summary(pca analysis) and scree plot
 
-```{r}
+```{r, echo=FALSE}
 
 ```
 
@@ -78,7 +79,7 @@ Afterwards, we calculate the PCA scores of each predictor variable to see which 
 
 PCA scores table and biplot
 
-```{r}
+```{r, echo=FALSE}
 
 ```
 
@@ -86,7 +87,7 @@ Now that we have our PCA scores, we can use these scores to train our PCR models
 
 PCR results matrix
 
-```{r}
+```{r, echo=FALSE}
 readRDS('../Tables/PCRPass.rds')
 ```
 
@@ -96,7 +97,7 @@ The next method used were trees. First, we fit an unpruned tree model to each of
 
 Show cv tree plots with ideal tree size for each model
 
-```{r}
+```{r, echo=FALSE}
 
 ```
 
@@ -104,14 +105,14 @@ Once optimal tree sizes were indicated, we pruned each tree to their respective 
 
 Plot decision tree for each model
 
-```{r}
+```{r, echo=FALSE}
 ```
 
 Afterwards, we finally begin splitting the data up using k-folds with k = 10. Each model is trained with their optimal tree size and the MSE is calculated similarly to the previous models and placed in an empty data-frame containing all MSE values for each response variable for their respective tree model.
 
 Show the results matrix for tree models
 
-```{r}
+```{r, echo=FALSE}
 readRDS('../Tables/TreePass.rds')
 ```
 
@@ -127,7 +128,7 @@ For `FL`, each of the other response variables were taken out of the model along
 
 Show results for Bagging MSE
 
-```{r}
+```{r, echo=FALSE}
 readRDS('../Tables/BagPass.rds')
 ```
 
@@ -137,12 +138,55 @@ The resulting MSE values for each response variable were put into one matrix for
 
 Results Matrix table
 
-```{r}
+```{r, echo=FALSE}
 readRDS('../Tables/master.rds')
 ```
 
+# Receiving Analysis
 
+In terms of receiving, players can be awarded points for a reception (`Rec`; worth 1 point), a receiving yard (`RecYds`; worth .1 points), and a receiving touchdown (`RecTD`; worth 6 points). The variables of interest were modeled with the full set of standard and advanced receiving metrics offered by pro-football-reference.com. These were `Tgt`, `RecLng`, `Fmb`, `FirstDRec`, `RecYBC`, `YBCPerR`, `RecYAC`, `YACPerR`, `ADOT`, `RecBrkTkl`, `RecPerBr`, `RecDrop`, `DropPerR`, `RecInt`, and `Rat` (descriptions of all these variables can be found in the appendix). The original training data set with 2018-2020 data was filtered to include only player-game observations with at least one reception. The resulting training set contained $n=11,079$ observations and $p=15$ predictors. Due to the large $p$ utilized, the major goal of this analysis was to develop highly predictive models while maintaining a high degree of simplicity and interpretability. All models were validated using 10-fold cross-validation. 
 
+## Regression Models
 
+The first and most basic class of models considered in this analysis was multiple linear regression. One of the major assumptions of multiple linear regression forbids multicollinearity between predictors. To discover highly correlated predictors, a correlation matrix was used in conjunction with variance inflated factor (VIF) scores. Of particular interest are the strong linear relationships found between `Tgt` and `RecYBC`, and `FirstDRec` (0.75 and 0.77), `ADOT` and `YBCPerR` (0.86), and `RecLng` and several other predictors including `RecYAC` and `FirstDRec`. Additional high correlations were found between metrics and their averages per reception (like `RecYBC` and `YBCPerR`, for example). 
+```{r, echo=FALSE}
+grid::grid.raster(readPNG('../Plots/corMatrix.png'))
+```
 
+Particularly high VIF scores were identified for `RecLng` (7.3), `RecYBC` (8.1), `YBCPerR` (6.8), and `RecYAC` (6.1). Removing `RecLng`, `FirstDRec`, `RecYBC`, `YBCPerR`, `DropPerR`, and `YACPerR` yielded reasonable cross-predictor correlations and VIF scores. A regression model was fit for each of `Rec`, `RecYds`, and `RecTD` using the nine remaining predictors. The one exception being for the `RecYds` model, `RecYBC` was included instead of `RecYAC` because of it's stronger relationship with the response (and both couldn't be included because $RecYds=RecYBC+RecYAC$). While the regression models performed decently with $MSE_{rec}=0.51$, $MSE_{recYds}=64.83$, and $MSE_{recTD}=0.09$, the normality assumption is violated and so these models were not considered viable and were used merely as benchmarks. 
 
+Next, variable selection techniques were applied to the above regression framework to identify important predictors since all the predictors in each model were considered statistically significance at $\alpha = 0.05$. Since the assumptions of regression are not met for this problem, these analyses were performed merely for comparison with other selection techniques used throughout the project. 
+
+The first selection technique used was a best subset selection. Based on Mallows' Cp, the Bayesian information criterion (BIC), and adjusted $R^{2}$, best subset chose an optimal subset of predictors with the goal of predictive accuracy. The `Rec` model chose four predictors: `Tgt`, `ADOT`, `RecDrop`, and `Rat`. Rationally, a player's receptions must be equal to their targets less passes dropped and missed passes; therefore, $Rec \leq Tgt - RecDrop$, and `ADOT` and `Rat` both measure a quarterback's passing ability, predicting missed passes. The `RecYds` model chose three predictors: `Tgt`, `RecYBC`, and `Rat`. Receiving yards is here defined as a function of targets and the total yards gained by each reception with `Rat` simulating completion percentage to adjust targets to real receptions. The `RecTD` model also chose three predictors: `Tgt`, `RecInt`, and `Rat`. Strangely, `RecInt` is by far the most predictive variable in this model; perhaps it is suggesting that end zone passes are high variance and that they often result in touchdowns but also, conversely, interceptions. The best subset selection models performed relatively equivalent to the multiple linear regression models with $MSE_{rec}=0.53$, $MSE_{recYds}=71.77$, and $MSE_{recTD}=0.11$. For the purposes of this study, the interpretability of the best subset models outweighs the trade off in MSE when compared to the previous regression models. 
+
+The second selection technique used was LASSO regression. Based on a 10-fold cross-validation MSE, LASSO regression chose an optimal subset of predictors with the goal of predictive accuracy. The `Rec` model chose the four previous predictors along with `RecYAC` and `RecPerBr`, both with low predictive weight. The `RecYds` model chose the three previous predictors along with `RecBrkTkl` and `RecPerBr`; these both make sense as predictors seeing as receivers that can break tackles after the catch have more opportunities to gain yards. The `RecTD` model chose seven predictors with `RecInt` still standing out as the only highly predictive one. The LASSO regression models did not perform any better than the best subset selection models with $MSE_{rec}=0.98$, $MSE_{recYds}=153.48$, and $MSE_{recTD}=0.09$, and were only less interpretable. 
+
+## Principal Component Analysis
+
+The next modeling technique applied was a principal component analysis with the objective of removing multicollinearity and identifying interpretable combinations of predictors. Using a scree plot, the first seven principal components were identified as important sources of variance explained with a cumulative 89.4% explained. 
+```{r, echo=FALSE}
+grid::grid.raster(readPNG('../Plots/screePlot.png'))
+```
+
+The first principal component was primarily defined by `Tgt`, `RecLng`, `FirstDRec`, and `RecYBC` and seems to represent some sort of aggregation of receptions and reception distance. The second principal component was primarily defined by `RecYAC`, `YACPerR`, and `RecBrkTkl` and represents a receiver performance after the ball is caught. The third principal component was negatively defined by `RecDrop` and `DropPerR` and represents the catching abilities of a receiver. The sixth principal component was dominated by the `Fmb` predictor. Despite the uninterpretability of the remaining principal components, they were included in the modeling process since they explain a significant amount of variance. 
+Using 10-fold cross-validation, principal component regression models were fitted for the variables of interest and an optimal number of principal components was chosen for each. The `Rec` and `RecYds` models chose seven principal components as would be suggested by the scree plot above. The `RecTD` model added an eighth principal component. While the principal component regression did not perform well for `Rec` and `RecTD`, with $MSE_{rec}=0.61$, $MSE_{recYds}=47.47$, and $MSE_{recTD}=0.15$, it did yield intriguing predictive power for `RecYds`. Ultimately, principal components regression yielded some interesting results and predictor groupings but struggled with prediction and interpretation.  
+
+## Tree-Based Models
+
+The final class of models applied to the training data was tree-based models. Regression trees were fit for each variable of interest using all predictors and an optimal number of terminal nodes was chosen using cross-validation. For the `Rec` model, only `Tgt` and `Rat` were selected and eight terminal nodes were used. This differed somewhat from the regression subset previously chosen but it follows a similar concept by adjusting total targets by a proxy for completion percetnage in `Rat`. The `RecYds` model chose seven terminal nodes and selected `RecYBC`, `FirstDRec`, `RecLng` and `YACPerR`. While the regression subset was also dominated by `RecYBC`, the other three chosen predictors here were removed for multicollinearity in prior models but do make sense in context of the response. The `RecTD` model was the simplest of all, only using two terminal nodes and `Rat` for prediction. The metric `Rat` here measures a quarterback's performance when throwing to a given receiver and weights touchdowns heavily. This could explain why `Rat` was found to be strongly predictive of touchdowns. The regression tree models achieved $MSE_{rec}=1.03$, $MSE_{recYds}=191.37$, and $MSE_{recTD}=0.10$. The interpretability of these results was much improved over principal components regression but the predictive power was too low for use in testing. Further tree-based methods were applied to improve accuracy. 
+
+Boosting was first applied using 100 trees and a 10-fold cross-validation tuned shrinkage factor. While interpretability was diminished due to the added complexity of the models, predictive accuracy was stronger across the board. The boosted models achieved $MSE_{rec}=0.40$, $MSE_{recYds}=50.25$, and $MSE_{recTD}=0.09$. Next, bootstrap aggregation or 'bagging' was applied with the expectation that both predictive accuracy and interpretability would be improved. The models all selected the same important predictors as the regression tree models but performed significantly better predictively, achieving $MSE_{rec}=0.15$, $MSE_{recYds}=17.92$, and $MSE_{recTD}=0.05$. A similar method, random forest, was also applied. For `RecYds` and `RecTD`, the random forest selected the same predictors as the bagged tree models but performed slightly worse. The `Rec` model, conversely, chose `Tgt`, `FirstDRec`, `RecYAC`, and `RecYBC` which makes intuitive sense as $FirstDRec \leq Rec \leq Tgt$. This model performed better than its bagged tree counterpart with $MSE_{rec}=0.13$. The extensions to the standard regression tree proved to increase the predictive power of the tree models drastically.
+
+## Receiving Results
+
+The ultimate goal of this analysis was to develop a model with high predictive accuracy but also reasonable interpretability. The multiple linear regression models along with the best subset selection models and the LASSO regression models provided a benchmark for interpretation and variable selection but violated assumptions prevent these models from being used for testing. The principal component analysis, while especially intriguing when predicting `RecYds`, included too many predictors and could only be vaguely interpreted. Building off the intuitive regression tree models developed, boosting, bagging, and random forest generated highly predictive tree-based models. The 10-fold cross-validation MSEs for each model are reproted below. 
+```{r, echo=FALSE}
+readRDS('../Tables/recResults.rds')
+```
+To predict `Rec`, a final random forest model was fit using `Tgt`, `FirstDRec`, `RecYAC`, and `RecYBC`. To predict `RecYds`, a final bagged tree model was fit using `RecYBC`, `FirstDRec`, `RecLng` and `YACPerR`. To predict `RecTD`, a final bagged tree model was fit using only `Rat`. 
+
+# Appendix
+
+- Variable definitions
+
+\end{document}
