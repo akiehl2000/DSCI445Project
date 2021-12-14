@@ -103,7 +103,7 @@ y <- train_data$PassYds
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
-plot(lasso_model)
+plot(lasso_model, main = "PassYds Lasso Model Plot to Identify Lambda")
 
 lasso_model <- glmnet(x, y, lambda = exp(2)); lasso_model
 coef(lasso_model)
@@ -136,7 +136,7 @@ y <- train_data$PassTD
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
-plot(lasso_model)
+plot(lasso_model, main = "PassTD Lasso Model Plot to Identify Lambda")
 
 lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
 coef(lasso_model)
@@ -169,7 +169,7 @@ y <- train_data$PassInt
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
-plot(lasso_model)
+plot(lasso_model, main = "PassInt Lasso Model Plot to Identify Lambda")
 
 lasso_model <- glmnet(x, y, lambda = exp(-3)); lasso_model
 coef(lasso_model)
@@ -202,7 +202,7 @@ y <- train_data$FL
 
 lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
-plot(lasso_model)
+plot(lasso_model, main = "FL Lasso Model Plot to Identify Lambda")
 
 lasso_model <- glmnet(x, y, lambda = exp(-4)); lasso_model
 coef(lasso_model)
@@ -252,7 +252,12 @@ pcplot = fviz_eig(pca_model)
 pcplot
 
 pca_scores = data.frame(pca_model$x)
-data.frame(pca_model$rotation[, 1:3])
+pca_scoreplot = data.frame(pca_model$rotation[, 1:3])
+
+pca_scoreplot %>%
+  saveRDS('../Tables/PCAScoresPass.rds')
+
+
 
 biplot(pca_model)
 
@@ -362,7 +367,7 @@ ggplot() +
   geom_line(aes(cv_tree$size, cv_tree$dev)) +
   geom_point(aes(8, cv_tree$dev[which(cv_tree$size == 8)]), color = "red") +
   scale_x_discrete(limits = factor(1:10)) +
-  labs(title = "CV Decision Tree Deviance", x = "Terminal Node", y = "Error")
+  labs(title = "Pass Yds Optimal Tree Size", x = "Terminal Node", y = "Error")
 
 tree_passyds = prune.tree(tree_passyds, best = '8')
 summary(tree_passyds)
@@ -370,6 +375,7 @@ summary(tree_passyds)
 
 plot(tree_passyds)
 text(tree_passyds)
+title(main = "PassYds Decision Tree")
 
 tree_mse = rep(NA,K)
 
@@ -400,7 +406,7 @@ ggplot() +
   geom_line(aes(cv_tree$size, cv_tree$dev)) +
   geom_point(aes(9, cv_tree$dev[which(cv_tree$size == 9)]), color = "red") +
   scale_x_discrete(limits = factor(1:10)) +
-  labs(title = "CV Decision Tree Deviance", x = "Terminal Node", y = "Error")
+  labs(title = "PassTD Optimal Tree Size", x = "Terminal Node", y = "Error")
 
 tree_model = prune.tree(tree_model, best = '9')
 summary(tree_model)
@@ -408,6 +414,7 @@ summary(tree_model)
 
 plot(tree_model)
 text(tree_model)
+title(main = "PassTD Decision Tree")
 
 tree_mse = rep(NA,K)
 
@@ -438,13 +445,14 @@ ggplot() +
   geom_line(aes(cv_tree$size, cv_tree$dev)) +
   geom_point(aes(12, cv_tree$dev[which(cv_tree$size == 12)]), color = "red") +
   scale_x_discrete(limits = factor(1:12)) +
-  labs(title = "CV Decision Tree Deviance", x = "Terminal Node", y = "Error")
+  labs(title = "PassInt Optimal Tree Size", x = "Terminal Node", y = "Error")
 
 tree_model = prune.tree(tree_model, best = '12')
 summary(tree_model)
 
 plot(tree_model)
 text(tree_model)
+title(main = "PassInt Decision Tree")
 
 tree_mse = rep(NA,K)
 
@@ -475,13 +483,14 @@ ggplot() +
   geom_line(aes(cv_tree$size, cv_tree$dev)) +
   geom_point(aes(5, cv_tree$dev[which(cv_tree$size == 5)]), color = "red") +
   scale_x_discrete(limits = factor(1:10)) +
-  labs(title = "CV Decision Tree Deviance", x = "Terminal Node", y = "Error")
+  labs(title = "FL Optimal Tree Size", x = "Terminal Node", y = "Error")
 
 tree_model = prune.tree(tree_model, best = '5')
 summary(tree_model)
 
 plot(tree_model)
 text(tree_model)
+title(main = "FL Decision Tree")
 
 
 tree_mse = rep(NA,K)
