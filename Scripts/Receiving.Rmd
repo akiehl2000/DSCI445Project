@@ -33,7 +33,7 @@ set.seed(445)
 
 Read in the data and select relevant fields for training set. 
 ```{r, message=FALSE}
-fileName <- './Data/masterDF[2018-2020].csv'
+fileName <- '../Data/masterDF[2018-2020].csv'
 rec_data <- read_csv(fileName) %>%
   select(-'...1')
 rec_data <- rec_data[, c(1:3, 17:23, 51:62)]
@@ -1035,15 +1035,15 @@ results <- data.frame(Model = c('Rec', 'RecYds', 'RecTD', 'FL'),
 
 results %>%
   kable(format = 'latex') %>%
-  saveRDS('./Tables/recResults.rds')
+  saveRDS('../Tables/recResults.rds')
 
 results[1:3, 1:6] %>%
   kable(format = 'latex') %>%
-  saveRDS('./Tables/recResultsStart.rds')
+  saveRDS('../Tables/recResultsStart.rds')
 
 results[1:3, c(1, 7:9)] %>%
   kable(format = 'latex') %>%
-  saveRDS('./Tables/recResultsEnd.rds')
+  saveRDS('../Tables/recResultsEnd.rds')
 ```
 
 ```{r}
@@ -1057,7 +1057,7 @@ data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
   geom_col(aes(Var, Purity)) + 
   theme(axis.text.x = element_text(angle = 45)) +
   labs(title = 'Variable Selection with Random Forest', y = 'Importance') %>%
-  saveRDS('./Plots/recPlot.rds')
+  saveRDS('../Plots/recPlot.rds')
 
 model <- randomForest(RecYds ~ . - Rec - RecTD - FL - RecYAC, data = train_data, mtry = 14, ntree = 10)
 import <- importance(model)
@@ -1069,7 +1069,7 @@ data.frame(Var = as.vector(labels(import)[[1]]), Purity = as.vector(import)) %>%
   geom_col(aes(Var, Purity)) + 
   theme(axis.text.x = element_text(angle = 45)) +
   labs(title = 'Variable Selection with Bagging', y = 'Importance') %>%
-  saveRDS('./Plots/recYdsPlot.rds')
+  saveRDS('../Plots/recYdsPlot.rds')
 
 model <- randomForest(RecTD ~ . - Rec - RecYds - FL, data = train_data, mtry = 15, ntree = 10)
 import <- importance(model)
@@ -1090,7 +1090,7 @@ plt %<a-% {
 }
 
 plt %>%
-  saveRDS('./Plots/recTDPlot.rds')
+  saveRDS('../Plots/recTDPlot.rds')
 
 plt
 ```
@@ -1100,17 +1100,17 @@ Save best models as .rds files.
 ```{r, warning=FALSE}
 # Random forest model chosen for Rec
 randomForest(Rec ~ Tgt + FirstDRec + RecYAC + RecYBC + Rat, data = train_data, mtry = 2, ntree = 200) %>%
-  saveRDS('./Models/recModel.rds')
+  saveRDS('../Models/recModel.rds')
 
 # Bagged tree model chosen for RecYds
 randomForest(RecYds ~ RecYBC + FirstDRec + RecLng + YACPerR, data = train_data, mtry = 4, ntree = 200) %>%
-  saveRDS('./Models/recYdsModel.rds')
+  saveRDS('../Models/recYdsModel.rds')
 
 # Decision tree model chosen for RecTD
 prune.tree(tree(RecTD ~ . - Rec - RecYds - FL, train_data), best = '2') %>%
-  saveRDS('./Models/recTDModel.rds')
+  saveRDS('../Models/recTDModel.rds')
 
 # Decision tree model chosen for FL
 prune.tree(tree(FL ~ . - Rec - RecYds - RecTD, train_data), best = '2') %>%
-  saveRDS('./Models/recFLModel.rds')
+  saveRDS('../Models/recFLModel.rds')
 ```

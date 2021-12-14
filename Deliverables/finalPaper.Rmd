@@ -107,7 +107,7 @@ Show the results matrix for tree models
 
 The final method used for the passing statistics was bagging. Bagging provided by far the best results for some response variables which we will see. First, we started by once again splitting our data into k-folds with k = 10. Each response variable was run with each fold being used as the validation set once, and a bagging model was fit. Afterwards, using the `importance()` function, we could see which predictors were significant to the response variable and based off these results and new bagging model was fit with the most significant predictors only, having the insignificant ones removed from the model altogether. 
 
-For `PassYds`, each of the other response variables were taken out of the model along with `PassDrops`, `BadThrow`, `BadPer`, `Rate` and `YdsLost` as they weren't deemed significant. 
+For `PassYds`, each of the other response variables were taken out of the model along with `PassDrops`, `BadThrow`, `BadPer`, `Rate`, `Sk`, `FirstDPassPer` and `YdsLost` as they weren't deemed significant. 
 
 For `PassInt`, each of the other response variables were taken out of the model along with `PassDrops`, `Sk`, `YACPerCmp`, `BadPer`, `PassAtt` and `YdsLost` as they weren't deemed significant. 
 

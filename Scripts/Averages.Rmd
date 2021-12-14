@@ -10,7 +10,7 @@ library(tidyverse)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-data = read_csv('./Data/masterDF[2018-2020].csv')
+data = read_csv('../Data/masterDF[2018-2020].csv')
 
 freq = as.data.frame(table(data$Player))
 colnames(freq) = c("Player", "Freq")
@@ -30,5 +30,5 @@ avg = select(avg, -c(...2,Freq))
 avg
 
 avg %>%
-  write_csv('./Data/averages.csv')
+  write_csv('../Data/averages.csv')
 ```

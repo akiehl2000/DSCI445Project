@@ -22,7 +22,7 @@ library(randomForest)
 
 ```{r}
 set.seed(445)
-master <- read.csv('./Data/masterDF[2018-2020].csv')
+master <- read.csv('../Data/masterDF[2018-2020].csv')
 rush_data <- master[, c(14:17, 24:24, 45:46)]
 head(rush_data)
 ```
