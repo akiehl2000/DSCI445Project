@@ -41,7 +41,8 @@ for (i in 1:nrow(train_data)) {
   }
 }
 
-train_data
+train_data %>%
+  saveRDS('../Tables/train.rds')
 ```
 ## Linear Regression
 
@@ -88,7 +89,8 @@ mlr_results = res %>%
   summarise(MSE = mean(mse))
 mlr_results = mlr_results %>%
   arrange(desc(MSE))
-mlr_results
+mlr_results %>%
+  saveRDS('../Tables/MLRResults.rds')
 ```
 
 
@@ -103,7 +105,7 @@ lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
 plot(lasso_model)
 
-lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+lasso_model <- glmnet(x, y, lambda = exp(2)); lasso_model
 coef(lasso_model)
 
 lasso_mse <- rep(NA, K)
@@ -115,7 +117,7 @@ for (k in 1:K) {
   x <- model.matrix(PassYds ~ . - PassTD - PassInt - FL, trn)
   y <- trn$PassYds
    
-  lasso_model <- glmnet(x, y, lambda = exp(-2))
+  lasso_model <- glmnet(x, y, lambda = exp(2))
    
   pred_x <- model.matrix(PassYds ~ . - PassTD - PassInt - FL, vld)
   pred <- predict(lasso_model, pred_x)
@@ -169,7 +171,7 @@ lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
 plot(lasso_model)
 
-lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+lasso_model <- glmnet(x, y, lambda = exp(-3)); lasso_model
 coef(lasso_model)
 
 lasso_mse <- rep(NA, K)
@@ -181,7 +183,7 @@ for (k in 1:K) {
   x <- model.matrix(PassInt ~ . - PassYds - PassTD - FL, trn)
   y <- trn$PassInt
    
-  lasso_model <- glmnet(x, y, lambda = exp(-2))
+  lasso_model <- glmnet(x, y, lambda = exp(-3))
    
   pred_x <- model.matrix(PassInt ~ . - PassYds - PassTD - FL, vld)
   pred <- predict(lasso_model, pred_x)
@@ -202,7 +204,7 @@ lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
 plot(lasso_model)
 
-lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
+lasso_model <- glmnet(x, y, lambda = exp(-4)); lasso_model
 coef(lasso_model)
 
 lasso_mse <- rep(NA, K)
@@ -214,7 +216,7 @@ for (k in 1:K) {
   x <- model.matrix(FL ~ . - PassYds - PassTD - PassInt, trn)
   y <- trn$FL
    
-  lasso_model <- glmnet(x, y, lambda = exp(-2))
+  lasso_model <- glmnet(x, y, lambda = exp(-4))
    
   pred_x <- model.matrix(FL ~ . - PassYds - PassTD - PassInt, vld)
   pred <- predict(lasso_model, pred_x)
@@ -232,9 +234,8 @@ lasso_results$MSE[which(lasso_results$Model == 'PassInt')] <- passintMSE
 lasso_results$MSE[which(lasso_results$Model == 'PassTD')] <- passtdMSE
 lasso_results$MSE[which(lasso_results$Model == 'PassYds')] <- passydsMSE
 
-
-
-lasso_results
+lasso_results %>%
+  saveRDS('../Tables/LASSOPass.rds')
 ```
 
 
@@ -247,6 +248,8 @@ pca_model = prcomp(train_data[, -c(3:5,10)], center = TRUE, scale = TRUE)
 summary(pca_model)
 
 pcplot = fviz_eig(pca_model)
+
+pcplot
 
 pca_scores = data.frame(pca_model$x)
 data.frame(pca_model$rotation[, 1:3])
@@ -342,7 +345,8 @@ pcr_results$MSE[which(pcr_results$Model == "PassInt")] <- pcapassintMSE
 pcr_results$MSE[which(pcr_results$Model == "PassTD")] <- pcapasstdMSE
 pcr_results$MSE[which(pcr_results$Model == "FL")] <- pcaflMSE
 
-pcr_results
+pcr_results %>%
+  saveRDS('../Tables/PCRPass.rds')
 ```
 Tree
 
@@ -503,7 +507,8 @@ tree_results$MSE[which(tree_results$Model == "PassInt")] <- intMSE
 tree_results$MSE[which(tree_results$Model == "PassTD")] <- tdMSE
 tree_results$MSE[which(tree_results$Model == "FL")] <- flMSE
 
-tree_results
+tree_results %>%
+  saveRDS('../Tables/TreePass.rds')
 ```
 
 Bagging as PassYds as a response
@@ -513,7 +518,7 @@ for(k in 1:K) {
   trn = train_data[folds != k,]
   vld = train_data[folds == k,]
 
- bag_fit = randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Rate - Sk - FirstDPassPer, data = trn, mtry = ncol(trn)-9, importance = TRUE)
+ bag_fit = randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Rate - Sk - FirstDPassPer, data = trn, mtry = ncol(trn)-11, importance = TRUE)
 }
 importance(bag_fit)
 pydsMSE = round(mean(bag_fit$mse),3)
@@ -567,6 +572,9 @@ bagging_results$MSE[which(bagging_results$Model == "PassYds")] <- pydsMSE
 bagging_results$MSE[which(bagging_results$Model == "PassInt")] <- pintMSE
 bagging_results$MSE[which(bagging_results$Model == "PassTD")] <- ptdMSE
 bagging_results$MSE[which(bagging_results$Model == "FL")] <- flMSE
+
+bagging_results %>%
+  saveRDS('../Tables/BagPass.rds')
 ```
 
 ```{r}
@@ -586,7 +594,7 @@ Save Models as .rds files
 
 ```{r}
 # Bagging will be used for PassYds
-randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Rate - Sk - FirstDPassPer, data = train_data, mtry = ncol(train_data)-9, importance = TRUE) %>%
+randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Rate - Sk - FirstDPassPer, data = train_data, mtry = ncol(train_data)-11, importance = TRUE) %>%
   saveRDS('../Models/passydsModel.rds')
 
 # Linear Regression will be used for PassTD
