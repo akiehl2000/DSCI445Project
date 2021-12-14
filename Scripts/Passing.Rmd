@@ -1,5 +1,5 @@
 ---
-title: "Passy Boi"
+title: "Passing Script"
 author: "Zach Brazil"
 date: "11/29/2021"
 output: pdf_document
@@ -91,17 +91,6 @@ mlr_results = mlr_results %>%
 mlr_results
 ```
 
-
-```{r}
-# set.seed(445)
-# 
-# deg = 6
-# cv_error = rep(NA, deg)
-# for(i in 1:deg) {
-#   poly_passyards = glm(PassYds ~ poly(Cmp,i) + poly(PassAtt,i) + poly(Sk,i) + poly(YdsLost,i) + poly(PassLng,i) + poly(Rate,i) + poly(FirstDPass,i) + poly(FirstDPassPer,i) + poly(CAY,i) + poly(YACPerCmp,i) + poly(PassDrops,i) + poly(BadThrow,i) + poly(BadPer,i), data = train_data)
-#   cv_error[i] = cv.glm(PassYds, poly)$delta[1]
-# }
-```
 
 LASSO Regression
 
@@ -258,8 +247,6 @@ pca_model = prcomp(train_data[, -c(3:5,10)], center = TRUE, scale = TRUE)
 summary(pca_model)
 
 pcplot = fviz_eig(pca_model)
-pcplot %>%
-  saveRDS('../Plots/pcplot.rds')
 
 pca_scores = data.frame(pca_model$x)
 data.frame(pca_model$rotation[, 1:3])
@@ -376,12 +363,9 @@ ggplot() +
 tree_passyds = prune.tree(tree_passyds, best = '8')
 summary(tree_passyds)
 
-ydstree %<a-% {
-  plot(tree_passyds)
-  text(tree_passyds)
-}
-ydstree %>%
-  saveRDS('../Plots/ydstree.rds')
+
+plot(tree_passyds)
+text(tree_passyds)
 
 tree_mse = rep(NA,K)
 
@@ -417,13 +401,9 @@ ggplot() +
 tree_model = prune.tree(tree_model, best = '9')
 summary(tree_model)
 
-tdtree %<a-% {
-  plot(tree_model)
-  text(tree_model)
-}
 
-tdtree %>%
-  saveRDS('../Plots/tdtree.rds')
+plot(tree_model)
+text(tree_model)
 
 tree_mse = rep(NA,K)
 
@@ -459,13 +439,8 @@ ggplot() +
 tree_model = prune.tree(tree_model, best = '12')
 summary(tree_model)
 
-inttree %<a-% {
-  plot(tree_model)
-  text(tree_model)
-}
-
-inttree %>%
-  saveRDS('../Plots/inttree.rds')
+plot(tree_model)
+text(tree_model)
 
 tree_mse = rep(NA,K)
 
@@ -501,13 +476,9 @@ ggplot() +
 tree_model = prune.tree(tree_model, best = '5')
 summary(tree_model)
 
-fltree %<a-% {
-  plot(tree_model)
-  text(tree_model)
-}
+plot(tree_model)
+text(tree_model)
 
-fltree %>%
-  saveRDS('../Plots/fltree.rds')
 
 tree_mse = rep(NA,K)
 
@@ -542,8 +513,9 @@ for(k in 1:K) {
   trn = train_data[folds != k,]
   vld = train_data[folds == k,]
 
- bag_fit = randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Sk - FirstDPassPer, data = trn, mtry = ncol(trn)-10, importance = TRUE)
+ bag_fit = randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Rate - Sk - FirstDPassPer, data = trn, mtry = ncol(trn)-9, importance = TRUE)
 }
+importance(bag_fit)
 pydsMSE = round(mean(bag_fit$mse),3)
 pydsMSE
 ```
@@ -555,7 +527,7 @@ for(k in 1:K) {
   trn = train_data[folds != k,]
   vld = train_data[folds == k,]
 
- bag_fit = randomForest(PassInt ~ . - PassTD - PassYds - FL, data = trn, mtry = ncol(trn)-4, importance = TRUE)
+ bag_fit = randomForest(PassInt ~ . - PassTD - PassYds - FL - PassDrops - Sk - YACPerCmp - BadThrow - YdsLost, data = trn, mtry = ncol(trn)-9, importance = TRUE)
 }
 importance(bag_fit)
 pintMSE = round(mean(bag_fit$mse),3)
@@ -569,8 +541,9 @@ for(k in 1:K) {
   trn = train_data[folds != k,]
   vld = train_data[folds == k,]
 
- bag_fit = randomForest(PassTD ~ . - PassYds - PassInt - FL, data = trn, mtry = ncol(trn)-4, importance = TRUE)
+ bag_fit = randomForest(PassTD ~ . - PassYds - PassInt - FL - PassDrops - Sk - YACPerCmp - FirstDPassPer - YdsLost, data = trn, mtry = ncol(trn)-9, importance = TRUE)
 }
+importance(bag_fit)
 ptdMSE = round(mean(bag_fit$mse),3)
 ptdMSE
 ```
@@ -582,8 +555,9 @@ for(k in 1:K) {
   trn = train_data[folds != k,]
   vld = train_data[folds == k,]
 
- bag_fit = randomForest(FL ~ . - PassYds - PassInt - PassTD, data = trn, mtry = ncol(trn)-4, importance = TRUE)
+ bag_fit = randomForest(FL ~ . - PassYds - PassInt - PassTD - PassDrops, data = trn, mtry = ncol(trn)-5, importance = TRUE)
 }
+importance(bag_fit)
 flMSE = round(mean(bag_fit$mse),3)
 flMSE
 
@@ -612,7 +586,7 @@ Save Models as .rds files
 
 ```{r}
 # Bagging will be used for PassYds
-randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Sk - FirstDPassPer, data = train_data, mtry = ncol(train_data)-10, importance = TRUE) %>%
+randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Rate - Sk - FirstDPassPer, data = train_data, mtry = ncol(train_data)-9, importance = TRUE) %>%
   saveRDS('../Models/passydsModel.rds')
 
 # Linear Regression will be used for PassTD
@@ -624,6 +598,6 @@ lm(FL ~ . - PassTD - PassInt - PassYds, data = train_data) %>%
   saveRDS('../Models/flModel.rds')
 
 # Bagging will be used for PassInt
-randomForest(PassInt ~ . - PassTD - PassYds - FL, data = train_data, mtry = ncol(train_data)-4, importance = TRUE) %>%
+randomForest(PassInt ~ . - PassTD - PassYds - FL - PassDrops - Sk - YACPerCmp - BadThrow - YdsLost, data = train_data, mtry = ncol(train_data)-9, importance = TRUE) %>%
   saveRDS('../Models/intModel.rds')
 ```
