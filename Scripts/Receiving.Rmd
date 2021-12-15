@@ -1171,7 +1171,7 @@ randomForest(RecYds ~ RecYBC + FirstDRec + RecLng + YACPerR, data = train_data, 
 
 # Bagged tree model chosen for RecTD
 randomForest(RecTD ~ Rat, data = train_data, mtry = 1, ntree = 200) %>%
-  saveRDS('../Models/recYdsModel.rds')
+  saveRDS('../Models/recTDModel.rds')
 
 # Decision tree model chosen for FL
 prune.tree(tree(FL ~ Fmb, train_data), best = '2') %>%
