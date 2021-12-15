@@ -123,7 +123,6 @@ FLPred <- readRDS('../Models/rushFLModel.rds')
 recPred <- readRDS('../Models/recModel.rds') %>%
   predict(pred_data) %>%
   round() %>%
-  removeNegatives() %>%
   removeNegatives()
 ```
 `RecYds` model:
@@ -189,15 +188,10 @@ predictions <- predictions %>%
   dplyr::filter(!is.nan(MSE))
 # predictions <- predictions[!is.nan(player_mse),]
 
-plt <- ggplot(predictions) +
+ggplot(predictions) +
   geom_histogram(aes(sqrt(MSE)), binwidth = .5) + 
   labs(title = 'Distribution of Errors', subtitle = 'Players used as unit for MSE calculation', x = 'Square Root of MSE', 
        y = 'Count')
-
-plt %>%
-  saveRDS('../Plots/histMSE.rds')
-
-plt
 ```
 
 ```{r, message=FALSE}
@@ -256,7 +250,7 @@ predictions %>%
 predictions %>%
   dplyr::filter(Pos == 'QB') %>%
   arrange(desc(fanPts)) %>%
-  head(20)
+  head(10)
 
 predictions %>%
   dplyr::filter(Pos == 'RB') %>%
