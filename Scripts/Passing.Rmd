@@ -525,7 +525,7 @@ tree_results$MSE[which(tree_results$Model == "FL")] <- flMSE
 tree_results %>%
   saveRDS('../Tables/TreePass.rds')
 
-par(mfrow = c(2,2))
+par(mfrow = c(2,2), cex = 0.5)
 plot(tree_passyds)
 text(tree_passyds)
 title(main = "PassYds Decision Tree")

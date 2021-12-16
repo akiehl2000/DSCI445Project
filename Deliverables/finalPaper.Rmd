@@ -95,12 +95,7 @@ The next method used were trees. First, we fit an unpruned tree model to each of
 Once optimal tree sizes were indicated, we pruned each tree to their respective sized and using the `prune.tree()` function we were able to run our original tree model again but using only the optimal amount of nodes. The trees for each response are below and follow the same order graphically as listed above.
 
 ```{r, echo=FALSE}
-# par(mfrow = c(2,2))
-# 
-# grid::grid.raster(readPNG('../Plots/PassYdsTree.png'))
-# grid::grid.raster(readPNG('../Plots/PassTDTree.png'))
-# grid::grid.raster(readPNG('../Plots/PassIntTree.png'))
-# grid::grid.raster(readPNG('../Plots/FLTree.png'))
+grid::grid.raster(readPNG('../Plots/TreeQuad.png'))
 ```
 
 Afterwards, we finally begin splitting the data up using k-folds with k = 10. Each model is trained with their optimal tree size and the MSE is calculated similarly to the previous models and placed in an empty data-frame containing all MSE values for each response variable for their respective tree model.
