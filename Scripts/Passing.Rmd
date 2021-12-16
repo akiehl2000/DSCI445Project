@@ -17,6 +17,7 @@ library(tree)
 library(MASS)
 library(randomForest)
 library(pryr)
+library(knitr)
 ```
 
 # Linear Regression
@@ -41,8 +42,15 @@ for (i in 1:nrow(train_data)) {
   }
 }
 
-train_data %>%
-  saveRDS('../Tables/train.rds')
+train_data[, 1:11] %>%
+  head() %>%
+  kable(format = 'latex') %>%
+  saveRDS('../Tables/train1.rds')
+
+train_data[, 12:17] %>%
+  head() %>%
+  kable(format = 'latex') %>%
+  saveRDS('../Tables/train2.rds')
 ```
 ## Linear Regression
 
@@ -90,6 +98,7 @@ mlr_results = res %>%
 mlr_results = mlr_results %>%
   arrange(desc(MSE))
 mlr_results %>%
+  kable(format = 'latex') %>%
   saveRDS('../Tables/MLRResults.rds')
 ```
 
@@ -101,7 +110,7 @@ K = 10
 x <- model.matrix(PassYds ~ . - PassTD - PassInt - FL, train_data)
 y <- train_data$PassYds
 
-lasso_yds <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+lasso_yds <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_yds
 
 plot(lasso_yds, main = "PassYds Lasso Model Plot to Identify Lambda")
 
@@ -235,6 +244,7 @@ lasso_results$MSE[which(lasso_results$Model == 'PassTD')] <- passtdMSE
 lasso_results$MSE[which(lasso_results$Model == 'PassYds')] <- passydsMSE
 
 lasso_results %>%
+  kable(format = 'latex') %>%
   saveRDS('../Tables/LASSOPass.rds')
 
 par(mfrow = c(2,2))
@@ -261,6 +271,7 @@ pca_scores = data.frame(pca_model$x)
 pca_scoreplot = data.frame(pca_model$rotation[, 1:3])
 
 pca_scoreplot %>%
+  kable(format = 'latex') %>%
   saveRDS('../Tables/PCAScoresPass.rds')
 
 
@@ -357,6 +368,7 @@ pcr_results$MSE[which(pcr_results$Model == "PassTD")] <- pcapasstdMSE
 pcr_results$MSE[which(pcr_results$Model == "FL")] <- pcaflMSE
 
 pcr_results %>%
+  kable(format = 'latex') %>%
   saveRDS('../Tables/PCRPass.rds')
 ```
 Tree
@@ -523,6 +535,7 @@ tree_results$MSE[which(tree_results$Model == "PassTD")] <- tdMSE
 tree_results$MSE[which(tree_results$Model == "FL")] <- flMSE
 
 tree_results %>%
+  kable(format = 'latex') %>%
   saveRDS('../Tables/TreePass.rds')
 
 par(mfrow = c(2,2), cex = 0.5)
@@ -606,6 +619,7 @@ bagging_results$MSE[which(bagging_results$Model == "PassTD")] <- ptdMSE
 bagging_results$MSE[which(bagging_results$Model == "FL")] <- flMSE
 
 bagging_results %>%
+  kable(format = 'latex') %>%
   saveRDS('../Tables/BagPass.rds')
 ```
 
@@ -617,6 +631,7 @@ master = data_frame(Model = c("PassYds", "PassInt", "PassTD", "FL"),
                     Tree = tree_results$MSE,
                     Bagging = bagging_results$MSE)
 master %>%
+  kable(format = 'latex') %>%
   saveRDS('../Tables/master.rds')
 
 master
@@ -625,6 +640,8 @@ master
 Save Models as .rds files
 
 ```{r}
+set.seed(445)
+
 # Bagging will be used for PassYds
 randomForest(PassYds ~ . - PassTD - PassInt - FL - PassDrops - BadThrow - BadPer - YdsLost - Rate - Sk - FirstDPassPer, data = train_data, mtry = ncol(train_data)-11, importance = TRUE) %>%
   saveRDS('../Models/passydsModel.rds')
