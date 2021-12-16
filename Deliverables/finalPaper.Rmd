@@ -185,6 +185,25 @@ readRDS('../Tables/recResults.rds')
 ```
 To predict `Rec`, a final random forest model was fit using `Tgt`, `FirstDRec`, `RecYAC`, and `RecYBC`. To predict `RecYds`, a final bagged tree model was fit using `RecYBC`, `FirstDRec`, `RecLng` and `YACPerR`. To predict `RecTD`, a final bagged tree model was fit using only `Rat`. 
 
+#Rushing Analysis
+
+Training Data:
+
+  The rushing ability of a football team is a valuable component of a team that can sometimes go overlooked. When looking at a fantasy team, rushing points can make or break a season. The part of this project regarding rushing was one that certainly contributed to the validity of it. The first important part of rushing yard analysis was finding valuable predictors. The predictors that were predicted to be of value were pulled and there were initially a lot. Before predictor significance was verified there were about 12 predictors. After verifying significance, and accounting for colinearity, the most significant predictors were `RushYds`, `RushTD`, and `FL`. One example of a predictor that was redundant was `FirstDRush`. This variable does not lead to fantasy points and relates closely with `RushYds`.
+  
+Models:
+
+  Creating models for these predictors was an interesting process with helpful results. Obviously some models were more accurate than others, but it was beneficial to see how the same 3 predictors can be used in different models to produce different results. The models that were used to test rushing were Multiple Linear Regression, Lasso, PCR, Bagging, and Boosting. PCR ended up giving values that were not as useful for our rushing experimentation. This may have been able to be attributed to user error but when the team looked at the input and output the problem was not clear. Since the PCR values were not helpful they ended up not being used. Of all the models; multiple linear regression provided the best MSE values for `RushTD` and `FL` (Fumbles lost). Bagging gave the best value for `RushYds`. In the end, these models were the ones that were selected for final testing. 
+  
+```{r}
+readRDS('../Tables/rushResults.rds')
+```
+  
+#Fumbles Analysis
+
+  An important factor of building a fantasy football team is the number of fumbles lost. Fumbles lost is the count of fumbles a player has that occurs in a turnover. This is an important factor because a fumble lost results in a negative point for a fantasy player. Analyzing the fumbles lost variable was cool because models were being built for the same variable in multiple ways. There were 3 different groups of predictors for each model. Fumbles lost was predicted with receptions predictors, passing predictors, and rushing predictors. The best fumbles lost model for receptions predictors was a tree model with an MSE of .028. The best fumbles lost model for passing predictors was a MLR model with an MSE of .191. The best fumbles lost model for rushing predictors was a MLR model with an MSE of .084. After viewing all of the best models, it was determined that the best model way to predict fumbles lost is to use the tree model for receptions data. 
+
+
 # Appendix
 
 - Variable definitions
