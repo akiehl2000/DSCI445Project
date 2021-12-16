@@ -13,9 +13,14 @@ library(png)
 
 # Introduction:
 
-- discuss what the project is
-- how we went about choosing the best models
-- what we used as train/test data
+In an attempt to predict the top fantasy point performers in the NFL, data from the 2018-2021 NFL regular seasons were scraped from pro-football-reference.com, using 2018-2020 data as our training data while 2021 was used for testing. Variables that were deemed point-worthy statistics were used as the response variables while those remaining were used as predictors. Below is a table that shows what the response variables are, and the amount of fantasy points gained for each one. For example, one passing touchdown would net 4 fantasy points while one passing yard would net .04 fantasy points.
+
+```{r}
+readRDS('../Tables/fanPts.rds')
+```
+
+Using a wide array of models, each point-worthy statistic was used as a response variable and the model with the lowest mean-squared error for that specific statistic was used against the testing data for the most accurate predictions.
+
 
 # Passing Analysis
 
