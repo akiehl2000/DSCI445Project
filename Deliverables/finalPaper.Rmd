@@ -15,7 +15,7 @@ library(tidyverse)
 library(png)
 ```
 
-# Introduction:
+# Introduction
 
 In an attempt to predict the top fantasy point performers in the NFL, data from the 2018-2021 NFL regular seasons were scraped from pro-football-reference.com (@proFootballRef), using 2018-2020 data as our training data while 2021 was used for testing. Variables that were deemed point-worthy statistics were used as the response variables while those remaining were used as predictors. Below is a table that shows what the response variables are, and the amount of fantasy points gained for each one. For example, one passing touchdown would net 4 fantasy points while one passing yard would net .04 fantasy points.
 
@@ -27,12 +27,11 @@ Using a wide array of models, each point-worthy statistic was used as a response
 
 # Passing Analysis
 
-## Training Data
-
 Our response variables, those that had some form of fantasy point value, were `PassYds` (Passing Yards), `PassTD` (Passing Touchdowns), `PassInt` (Passing Interceptions) and `FL` (Fumbles Lost). All predictors that weren't related to throwing the ball were removed from the training dataset. Out of the remaining variables, `CMP` (Completions) were used to filter out non-quarterbacks in the dataset. Typically because most other positions don't throw the ball or if they do it's extremely rare so we deemed it a safe assumption to make as far as removing those players from the training data. Other predictors were removed due to multicolinearity. In this instance, CAY (Completed Air Yards) and YAC (Yards After Catch) were perfectly correlated and when these two variables were added together we would get the total passing yards for the quarterback on each play. We avoided having bias in our data by removing `PassYAC`, thus avoiding perfect correlation between our predictors. Lastly, the predictor variable `FirstDPass` (First Down Pass) contained NA values so for easy intuition and to avoid errors in the future we changed each NA value to 0. 
 
-```{r, echo=FALSE}
-readRDS('../Tables/train.rds')
+```{r, echo=FALSE, fig.align = 'center'}
+readRDS('../Tables/train1.rds')
+readRDS('../Tables/train2.rds')
 ```
 
 ## Models
@@ -43,7 +42,7 @@ Several models were used and each response variable was tested for train mean-sq
 
 The first model used was Multiple Linear Regression. We split the data randomly into k-folds, 10 in this case and going forward, and used k-fold cross validation. We ran a for loop the length of k (10) holding out one fold and using the other nine as our training set for each of the linear regression models for each response variable. Four models were run with every iteration (one for each of the four response variables) until no folds were left to be tested on. We then predict the value of our response using whichever k-fold as our test set and calculate the MSE by subtracting the prediction value by the true value of the response and squaring the result. This was done for every model and the MSE values were stored into an empty data-frame and will be used later on. Below is the table of MSE from MLR.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/MLRResults.rds')
 ```
 
@@ -54,13 +53,15 @@ Seeing the MSE for each model, `FL` had a decent MSE meanwhile the others left s
 Each response variable was fit with a LASSO regression in hopes to lower MSE while shrinking insignificant predictors down to 0. 
 The plots below show where the choice of lambda came from. Wherever the elbow was, was the value chosen.
 
-```{r, echo=FALSE}
+\newpage
+
+```{r, echo=FALSE, fig.align = 'center'}
 grid::grid.raster(readPNG('../Plots/LassoQuad.png'))
 ```
 
 By randomly splitting the data into k-folds with k = 10, we can use one fold as the validation set. Each response is fitted, and the respective model is predicted against the validation set. The MSE is calculated for each k-fold and the mean is taken. The MSE was computed in a similar manner to that of Linear Regression. The resulting MSE values for each model are put into an empty data-frame that will be used later.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/LASSOPass.rds')
 ```
 
@@ -68,7 +69,7 @@ readRDS('../Tables/LASSOPass.rds')
 
 Before we can use PCR to get some predictive analysis for our responses, we perform Principle Component Analysis on our data to get a better understanding of the overall structure of our training data. The resulting summary table from our PCA shows us how many components were necessary to explain at least 90% of our variance, and follow that up with a scree plot to indicate a which principle component is the best for explaining enough variance, meanwhile keeping the complexity of the model to a minimum.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 grid::grid.raster(readPNG('../Plots/ScreePlotPass.png'))
 ```
 
@@ -76,7 +77,7 @@ At x principle components, approximately 90% of our variance is explained which 
 
 Afterwards, we calculate the PCA scores of each predictor variable to see which predictor has the greatest influence on each principle component. The graph is the best 2D representation of what is happening in several dimensions. It is very hard to conceptualize what is happening in PCA when more than three components are required to explain the majority of the variance.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/PCAScoresPass.rds')
 ```
 
@@ -84,7 +85,7 @@ The matrix above informs which predictor explained the most variance along each 
 
 Now that we have our PCA scores, we can use these scores to train our PCR models. Again, our training data is randomly split into k-folds, where k = 10, every fold is held out once to be used as the testing data. We then calculate MSE of each by pulling the true value of each response from the validation set and subtracting the predicted value from it, squaring it and taking the mean. These values were again stored in an empty data-frame containing all MSE values for each response variable for their respective PCR model. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/PCRPass.rds')
 ```
 
@@ -94,13 +95,13 @@ The next method used were trees. First, we fit an unpruned tree model to each of
 
 Once optimal tree sizes were indicated, we pruned each tree to their respective sized and using the `prune.tree()` function we were able to run our original tree model again but using only the optimal amount of nodes. The trees for each response are below and follow the same order graphically as listed above.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 grid::grid.raster(readPNG('../Plots/TreeQuad.png'))
 ```
 
 Afterwards, we finally begin splitting the data up using k-folds with k = 10. Each model is trained with their optimal tree size and the MSE is calculated similarly to the previous models and placed in an empty data-frame containing all MSE values for each response variable for their respective tree model.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/TreePass.rds')
 ```
 
@@ -114,7 +115,7 @@ For `PassTD`, each of the other response variables were taken out of the model a
 
 For `FL`, each of the other response variables were taken out of the model along with `PassDrops` as it wasn't deemed significant. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/BagPass.rds')
 ```
 
@@ -122,7 +123,7 @@ readRDS('../Tables/BagPass.rds')
 
 The resulting MSE values for each response variable were put into one matrix for easy comparisons so we could take the best model for each response and use that model to predict on the testing data set. The matrix is below:
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/master.rds')
 ```
 
@@ -134,7 +135,7 @@ In terms of receiving, players can be awarded points for a reception (`Rec`; wor
 
 The first and most basic class of models considered in this analysis was multiple linear regression. One of the major assumptions of multiple linear regression forbids multicollinearity between predictors. To discover highly correlated predictors, a correlation matrix was used in conjunction with variance inflated factor (VIF) scores. Of particular interest are the strong linear relationships found between `Tgt` and `RecYBC`, and `FirstDRec` (0.75 and 0.77), `ADOT` and `YBCPerR` (0.86), and `RecLng` and several other predictors including `RecYAC` and `FirstDRec`. Additional high correlations were found between metrics and their averages per reception (like `RecYBC` and `YBCPerR`, for example). 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 grid::grid.raster(readPNG('../Plots/corMatrix.png'))
 ```
 
@@ -150,7 +151,7 @@ The second selection technique used was LASSO regression. Based on a 10-fold cro
 
 The next modeling technique applied was a principal component analysis with the objective of removing multicollinearity and identifying interpretable combinations of predictors. Using a scree plot, the first seven principal components were identified as important sources of variance explained with a cumulative 89.4% explained. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 grid::grid.raster(readPNG('../Plots/screePlot.png'))
 ```
 
@@ -167,7 +168,7 @@ Boosting was first applied using 100 trees and a 10-fold cross-validation tuned 
 
 The ultimate goal of this analysis was to develop a model with high predictive accuracy but also reasonable interpretability. The multiple linear regression models along with the best subset selection models and the LASSO regression models provided a benchmark for interpretation and variable selection but violated assumptions prevent these models from being used for testing. The principal component analysis, while especially intriguing when predicting `RecYds`, included too many predictors and could only be vaguely interpreted. Building off the intuitive regression tree models developed, boosting, bagging, and random forest generated highly predictive tree-based models. The 10-fold cross-validation MSEs for each model are reproted below. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/recResults.rds')
 ```
 
@@ -175,58 +176,53 @@ To predict `Rec`, a final random forest model was fit using `Tgt`, `FirstDRec`, 
 
 # Rushing Analysis
 
-## Training Data
-
-  The rushing ability of a football team is a valuable component of a team that can sometimes go overlooked. When looking at a fantasy team, rushing points can make or break a season. The part of this project regarding rushing was one that certainly contributed to the validity of it. The first important part of rushing yard analysis was finding valuable predictors. The predictors that were expected to be of value were pulled and there were initially many. Before predictor significance was verified there were about 12 predictors. After verifying significance, and accounting for collinearity, the most significant predictors were `RushYds`, `RushTD`, and `FL`. One example of a predictor that was redundant was `FirstDRush`. This variable does not lead to fantasy points and relates closely with `RushYds`.
+The rushing ability of a football team is a valuable component of a team that can sometimes go overlooked. When looking at a fantasy team, rushing points can make or break a season. The part of this project regarding rushing was one that certainly contributed to the validity of it. The first important part of rushing yard analysis was finding valuable predictors. The predictors that were expected to be of value were pulled and there were initially many. Before predictor significance was verified there were about 12 predictors. After verifying significance, and accounting for collinearity, the most significant predictors were `RushYds`, `RushTD`, and `FL`. One example of a predictor that was redundant was `FirstDRush`. This variable does not lead to fantasy points and relates closely with `RushYds`.
   
 ## Models
 
-  Creating models for these predictors was an interesting process with helpful results. Obviously some models were more accurate than others, but it was beneficial to see how the same 3 predictors can be used in different models to produce different results. The models that were used to test rushing were Multiple Linear Regression, Lasso, PCR, Bagging, and Boosting. PCR ended up giving values that were not as useful for our rushing experimentation. This may have been able to be attributed to user error but when the team looked at the input and output the problem was not clear. Since the PCR values were not helpful they ended up not being used. Of all the models; multiple linear regression provided the best MSE values for `RushTD` and `FL` (Fumbles lost). Bagging gave the best value for `RushYds`. In the end, these models were the ones that were selected for final testing. 
+Creating models for these predictors was an interesting process with helpful results. Obviously some models were more accurate than others, but it was beneficial to see how the same 3 predictors can be used in different models to produce different results. The models that were used to test rushing were Multiple Linear Regression, Lasso, PCR, Bagging, and Boosting. PCR ended up giving values that were not as useful for our rushing experimentation. This may have been able to be attributed to user error but when the team looked at the input and output the problem was not clear. Since the PCR values were not helpful they ended up not being used. Of all the models; multiple linear regression provided the best MSE values for `RushTD` and `FL` (Fumbles lost). Bagging gave the best value for `RushYds`. In the end, these models were the ones that were selected for final testing. 
   
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/rushResults.rds')
 ```
 
 ## Multiple Linear Regression
 
-  Multiple Linear Regression was the perfect place to start for analysis of the rushing data. In order to complete the multiple linear regression model the data was split randomly into k-folds. Once again k = 10 in this context. A for loop was run with each response variable. In this case the response variables were `RushTD`, `RushYds`, and `FL`. Four models were run with every iteration (one for each of the four response variables) until no folds were left to be tested on. Each from each model an MSE was calculated and that value was used later for assessing models. For some variables with this model, the MSE values were undesirable and did not seem vary helpful. The MSE values for `RushTD` and `FL` ended up being solid and when compared to later models, the values were best. 
+Multiple Linear Regression was the perfect place to start for analysis of the rushing data. In order to complete the multiple linear regression model the data was split randomly into k-folds. Once again k = 10 in this context. A for loop was run with each response variable. In this case the response variables were `RushTD`, `RushYds`, and `FL`. Four models were run with every iteration (one for each of the four response variables) until no folds were left to be tested on. Each from each model an MSE was calculated and that value was used later for assessing models. For some variables with this model, the MSE values were undesirable and did not seem vary helpful. The MSE values for `RushTD` and `FL` ended up being solid and when compared to later models, the values were best. 
   
 ## Bagging
 
-  Bagging, or bootstrap aggregation was another successful model for the rushing statistics. This model was done as a tree-based model following boosting and allowed for the boosting result to be more interpretable and useful in the analysis. The result of bagging in the rushing analysis led to one of the best MSE values and for the variable `RushYds` the MSE value was better than all the other models previously used. The MSE value for `RushYds` was solid ended up being used for final testing. 
+Bagging, or bootstrap aggregation was another successful model for the rushing statistics. This model was done as a tree-based model following boosting and allowed for the boosting result to be more interpretable and useful in the analysis. The result of bagging in the rushing analysis led to one of the best MSE values and for the variable `RushYds` the MSE value was better than all the other models previously used. The MSE value for `RushYds` was solid ended up being used for final testing. 
   
   
 # Fumbles Analysis
 
-  An important factor of building a fantasy football team is the number of fumbles lost. Fumbles lost is the count of fumbles a player has that occurs in a turnover. This is an important factor because a fumble lost results in a negative point for a fantasy player. Analyzing the fumbles lost variable was cool because models were being built for the same variable in multiple ways. There were 3 different groups of predictors for each model. Fumbles lost was predicted with receptions predictors, passing predictors, and rushing predictors. The best fumbles lost model for receptions predictors was a tree model with an MSE of .028. The best fumbles lost model for passing predictors was a MLR model with an MSE of .191. The best fumbles lost model for rushing predictors was a MLR model with an MSE of .084. After viewing all of the best models, it was determined that the best model way to predict fumbles lost is to use the tree model for receptions data. 
+An important factor of building a fantasy football team is the number of fumbles lost. Fumbles lost is the count of fumbles a player has that occurs in a turnover. This is an important factor because a fumble lost results in a negative point for a fantasy player. Analyzing the fumbles lost variable was cool because models were being built for the same variable in multiple ways. There were 3 different groups of predictors for each model. Fumbles lost was predicted with receptions predictors, passing predictors, and rushing predictors. The best fumbles lost model for receptions predictors was a tree model with an MSE of .028. The best fumbles lost model for passing predictors was a MLR model with an MSE of .191. The best fumbles lost model for rushing predictors was a MLR model with an MSE of .084. After viewing all of the best models, it was determined that the best model way to predict fumbles lost is to use the tree model for receptions data. 
 
 # Results
 
 This project's ultimate objective was to develop a pre-season ranking of players for use in a fantasy draft. The models developed were designed to accept a set of advanced statistics and return an estimate of the fantasy performance associated with that stat line. Since models were not developed to predict individual players' progressions over time, a constant "typical" game performance was estimated for each player for use in prediction. To this end, each player's advanced training metrics were averaged across their last 17 games played (only players with at least 17 games in our training set were included in this validation step). These averages were then supplied to the models to obtain a "typical" fantasy performance for that player. Predictions were rounded to the nearest integer since the response was discrete. This value was then compared to that players' 2021 season fantasy performance for testing, and MSE was calculated per player. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/predPartial.rds')
 ```
 
 The above results concur strongly with the true top fantasy performers in the NFL. Positional top ten rankings were compared to ESPN's 2021 preseason fantasy rankings (@espnPreseason) and seven each of QBs, WRs, and RBs were found in common. The discrepancies can be explained by player age, career progression (whether a starting job was earned for 2021), and simple over or under performance. MSE was calculated for each player and square rooted for direct comparison to `fanPts`. The median square rooted MSE for all players was 6.1 while the standard deviation of `fanPts` in the testing set was 8.1. Median was here used as a measure of central tendency because of the outliers in the histogram of MSE.  
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 grid::grid.raster(readPNG('../Plots/histMSE.png'))
 ```
 
 Decomposing `fanPts` MSE into model-by-model MSE revealed major sources of prediction error. Specifically, yards were difficult to predict across the board seeing as that was the highest variance of all the variables of interest. The `PassYds` model performed by far the worst and the error contained therein could explain the slight overvaluation of quarterbacks distinguishable in the ranking results. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align = 'center'}
 readRDS('../Tables/MSE.rds')
 ```
 
 ## Discussion
 
-The rankings produced ultimately have enough basis in reality to be practically useful as a fantasy draft tool, but should they be?
+The rankings produced ultimately have enough basis in reality to be practically useful as a fantasy draft tool, but should they be? Obviously the project presented here can not perfectly predict the fantasy season. While this project had solid models that accounted for a lot of details of the game of fantasy football, there are still some parts that should be perfected in the future given more time and resources. Some of the problems with the solution were that this project does not account for matchup strength. There is only one performance estimate per player and it would be helpful to see how difficult a players upcoming season will be along with their stats. Another problem with the solution was that this solution does not account for players with less than 17 games. Not including players with less than 17 games can be detrimental to the models because it does not allow for all potential performers to be accounted for. There could be some players that perform at a high level i.e. starting rookies or players that are returning after an injury and they are not presented as assets in the solution Another problem with the solution is that with the data used, it is difficult to account for expectation of injury properly. An important part of fantasy is having players that are reliable and healthy. When players get injured often or are playing though an injury that has potential to deteriorate; it is important to account for that and be ready to replace them with a backup if necessary. Another problem with this solution is that a continuous distribution for truly discrete variables is assumed. An example of this is how `Rec`, `TD`, `FL`, and other variables are assumed to be continuous when they are not. This can of course lead to some inaccuracies. 
 
-  Obviously the project presented here can not perfectly predict the fantasy season. While this project had solid models that accounted for a lot of details of the game of fantasy football, there are still some parts that should be perfected in the future given more time and resources. Some of the problems with the solution were that this project does not account for matchup strength. There is only one performance estimate per player and it would be helpful to see how difficult a players upcoming season will be along with their stats. Another problem with the solution was that this solution does not account for players with less than 17 games. Not including players with less than 17 games can be detrimental to the models because it does not allow for all potential performers to be accounted for. There could be some players that perform at a high level i.e. starting rookies or players that are returning after an injury and they are not presented as assets in the solution Another problem with the solution is that with the data used, it is difficult to account for expectation of injury properly. An important part of fantasy is having players that are reliable and healthy. When players get injured often or are playing though an injury that has potential to deteriorate; it is important to account for that and be ready to replace them with a backup if necessary. Another problem with this solution is that a continuous distribution for truly discrete variables is assumed. An example of this is how `Rec`, `TD`, `FL`, and other variables are assumed to be continuous when they are not. This can of course lead to some inaccuracies. 
-  
-  This solution is not without it's strengths and there are certainly some  advantages to it's implementation. One advantage of the solution is that predictions can be made in a rolling fashion. This means that the training data can be updated and the last 17 games for all players can be accounted for repeatedly. Another advantage of this solution is that it uses a wide variety of predictor variables. When creating models to solve a problem it is crucial to have a myriad of predictors that allow for a variety of variables to be accounted for. By including so many predictors, the project was able to reach the accuracy it did. A big strength of the project that gives this group pride is the interpretability of the project. When there the project was started the data was in a format that was not user friendly and was sometimes difficult to understand. This project took the abstract data and put it in a format that tells a story. It is accessible and easy to explain. The visualizations and tables are a fantastic aid in getting across the points of the project. Overall this project was fun and fulfilling to work on and is one that would even be fun to continue working on as the group's skillsets continue to develop.
-
+This solution is not without it's strengths and there are certainly some  advantages to it's implementation. One advantage of the solution is that predictions can be made in a rolling fashion. This means that the training data can be updated and the last 17 games for all players can be accounted for repeatedly. Another advantage of this solution is that it uses a wide variety of predictor variables. When creating models to solve a problem it is crucial to have a myriad of predictors that allow for a variety of variables to be accounted for. By including so many predictors, the project was able to reach the accuracy it did. A big strength of the project that gives this group pride is the interpretability of the project. When there the project was started the data was in a format that was not user friendly and was sometimes difficult to understand. This project took the abstract data and put it in a format that tells a story. It is accessible and easy to explain. The visualizations and tables are a fantastic aid in getting across the points of the project. Overall this project was fun and fulfilling to work on and is one that would even be fun to continue working on as the group's skillsets continue to develop.
 
 # References
