@@ -101,9 +101,9 @@ K = 10
 x <- model.matrix(PassYds ~ . - PassTD - PassInt - FL, train_data)
 y <- train_data$PassYds
 
-lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+lasso_yds <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
-plot(lasso_model, main = "PassYds Lasso Model Plot to Identify Lambda")
+plot(lasso_yds, main = "PassYds Lasso Model Plot to Identify Lambda")
 
 lasso_model <- glmnet(x, y, lambda = exp(2)); lasso_model
 coef(lasso_model)
@@ -134,9 +134,9 @@ K = 10
 x <- model.matrix(PassTD ~ . - PassYds - PassInt - FL, train_data)
 y <- train_data$PassTD
 
-lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+lasso_td <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
-plot(lasso_model, main = "PassTD Lasso Model Plot to Identify Lambda")
+plot(lasso_td, main = "PassTD Lasso Model Plot to Identify Lambda")
 
 lasso_model <- glmnet(x, y, lambda = exp(-2)); lasso_model
 coef(lasso_model)
@@ -167,9 +167,9 @@ K = 10
 x <- model.matrix(PassInt ~ . - PassYds - PassTD - FL, train_data)
 y <- train_data$PassInt
 
-lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+lasso_int <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
-plot(lasso_model, main = "PassInt Lasso Model Plot to Identify Lambda")
+plot(lasso_int, main = "PassInt Lasso Model Plot to Identify Lambda")
 
 lasso_model <- glmnet(x, y, lambda = exp(-3)); lasso_model
 coef(lasso_model)
@@ -200,9 +200,9 @@ K = 10
 x <- model.matrix(FL ~ . - PassYds - PassTD - PassInt, train_data)
 y <- train_data$FL
 
-lasso_model <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
+lasso_fl <- cv.glmnet(x, y, type.measure = 'mse', nfolds = 10); lasso_model
 
-plot(lasso_model, main = "FL Lasso Model Plot to Identify Lambda")
+plot(lasso_fl, main = "FL Lasso Model Plot to Identify Lambda")
 
 lasso_model <- glmnet(x, y, lambda = exp(-4)); lasso_model
 coef(lasso_model)
@@ -236,6 +236,12 @@ lasso_results$MSE[which(lasso_results$Model == 'PassYds')] <- passydsMSE
 
 lasso_results %>%
   saveRDS('../Tables/LASSOPass.rds')
+
+par(mfrow = c(2,2))
+plot(lasso_yds, main = "PassYds Lasso Plot to Identify Lambda")
+plot(lasso_td, main = "PassTD Lasso Plot to Identify Lambda")
+plot(lasso_int, main = "PassInt Lasso Plot to Identify Lambda")
+plot(lasso_fl, main = "FL Lasso Plot to Identify Lambda")
 ```
 
 
@@ -408,12 +414,12 @@ ggplot() +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title = "PassTD Optimal Tree Size", x = "Terminal Node", y = "Error")
 
-tree_model = prune.tree(tree_model, best = '9')
-summary(tree_model)
+tree_td = prune.tree(tree_model, best = '9')
+summary(tree_td)
 
 
-plot(tree_model)
-text(tree_model)
+plot(tree_td)
+text(tree_td)
 title(main = "PassTD Decision Tree")
 
 tree_mse = rep(NA,K)
@@ -447,11 +453,11 @@ ggplot() +
   scale_x_discrete(limits = factor(1:12)) +
   labs(title = "PassInt Optimal Tree Size", x = "Terminal Node", y = "Error")
 
-tree_model = prune.tree(tree_model, best = '12')
-summary(tree_model)
+tree_int = prune.tree(tree_model, best = '12')
+summary(tree_int)
 
-plot(tree_model)
-text(tree_model)
+plot(tree_int)
+text(tree_int)
 title(main = "PassInt Decision Tree")
 
 tree_mse = rep(NA,K)
@@ -485,11 +491,11 @@ ggplot() +
   scale_x_discrete(limits = factor(1:10)) +
   labs(title = "FL Optimal Tree Size", x = "Terminal Node", y = "Error")
 
-tree_model = prune.tree(tree_model, best = '5')
-summary(tree_model)
+tree_fl = prune.tree(tree_model, best = '5')
+summary(tree_fl)
 
-plot(tree_model)
-text(tree_model)
+plot(tree_fl)
+text(tree_fl)
 title(main = "FL Decision Tree")
 
 
@@ -518,6 +524,23 @@ tree_results$MSE[which(tree_results$Model == "FL")] <- flMSE
 
 tree_results %>%
   saveRDS('../Tables/TreePass.rds')
+
+par(mfrow = c(2,2))
+plot(tree_passyds)
+text(tree_passyds)
+title(main = "PassYds Decision Tree")
+
+plot(tree_td)
+text(tree_td)
+title(main = "PassTD Decision Tree")
+
+plot(tree_int)
+text(tree_int)
+title(main = "PassInt Decision Tree")
+
+plot(tree_fl)
+text(tree_fl)
+title(main = "FL Decision Tree")
 ```
 
 Bagging as PassYds as a response

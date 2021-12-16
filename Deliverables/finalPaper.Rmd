@@ -55,12 +55,7 @@ Each response variable was fit with a LASSO regression in hopes to lower MSE whi
 The plots below show where the choice of lambda came from. Wherever the elbow was, was the value chosen.
 
 ```{r, echo=FALSE}
-# par(mfrow = c(2,2))
-# 
-# grid::grid.raster(readPNG('../Plots/PassYdsLasso.png'))
-# grid::grid.raster(readPNG('../Plots/PassTDLasso.png'))
-# grid::grid.raster(readPNG('../Plots/PassIntLasso.png'))
-# grid::grid.raster(readPNG('../Plots/FLLasso.png'))
+grid::grid.raster(readPNG('../Plots/LassoQuad.png'))
 ```
 
 By randomly splitting the data into k-folds with k = 10, we can use one fold as the validation set. Each response is fitted, and the respective model is predicted against the validation set. The MSE is calculated for each k-fold and the mean is taken. The MSE was computed in a similar manner to that of Linear Regression. The resulting MSE values for each model are put into an empty data-frame that will be used later.
