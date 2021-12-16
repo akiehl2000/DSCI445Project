@@ -53,8 +53,6 @@ Seeing the MSE for each model, `FL` had a decent MSE meanwhile the others left s
 Each response variable was fit with a LASSO regression in hopes to lower MSE while shrinking insignificant predictors down to 0. 
 The plots below show where the choice of lambda came from. Wherever the elbow was, was the value chosen.
 
-\newpage
-
 ```{r, echo=FALSE, fig.align = 'center'}
 grid::grid.raster(readPNG('../Plots/LassoQuad.png'))
 ```
@@ -109,7 +107,7 @@ Afterwards, we finally begin splitting the data up using k-folds with k = 10. Ea
 readRDS('../Tables/TreePass.rds')
 ```
 
-# Bagging
+## Bagging
 
 The final method used for the passing statistics was bagging. Bagging provided by far the best results for some response variables which we will see. First, we started by once again splitting our data into k-folds with k = 10. Each response variable was run with each fold being used as the validation set once, and a bagging model was fit. Afterwards, using the `importance()` function, we could see which predictors were significant to the response variable and based off these results and new bagging model was fit with the most significant predictors only, having the insignificant ones removed from the model altogether. 
 

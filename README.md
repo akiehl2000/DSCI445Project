@@ -35,5 +35,7 @@ Zach Brazil, Richard Charles, Adam Kiehl
 2. Select 2018-2020 data as training set  
 3. Fit and train models on training data in Passing.Rmd, Receiving.Rmd, and Rushing.Rmd  
 4. Calculate expected game performance with Averages.Rmd  
-5. Predict expected fantasy performance with saved models and test against 2021 data  
+5. Predict expected fantasy performance with saved models and test against 2021 data using Testing.Rmd
 6. Report results in finalPresentation.Rmd and finalPaper.Rmd  
+
+Note: Plots were screenshotted and uploaded as .png files to the `Plots` directory for use in the paper. 
