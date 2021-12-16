@@ -2,7 +2,9 @@
 title: "Receiving Models"
 author: "Adam Kiehl"
 date: "11/24/21"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
@@ -35,7 +37,7 @@ Read in the data and select relevant fields for training set.
 ```{r, message=FALSE}
 fileName <- '../Data/masterDF[2018-2020].csv'
 rec_data <- read_csv(fileName) %>%
-  select(-'...1')
+  dplyr::select(-'...1')
 rec_data <- rec_data[, c(1:3, 17:23, 51:62)]
 
 train_data <- rec_data[which(rec_data$Rec > 0 & !is.na(rec_data$RecLng)), -c(1:3)]
