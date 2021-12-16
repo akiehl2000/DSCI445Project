@@ -177,7 +177,7 @@ To predict `Rec`, a final random forest model was fit using `Tgt`, `FirstDRec`, 
 
 ## Training Data
 
-  The rushing ability of a football team is a valuable component of a team that can sometimes go overlooked. When looking at a fantasy team, rushing points can make or break a season. The part of this project regarding rushing was one that certainly contributed to the validity of it. The first important part of rushing yard analysis was finding valuable predictors. The predictors that were predicted to be of value were pulled and there were initially a lot. Before predictor significance was verified there were about 12 predictors. After verifying significance, and accounting for colinearity, the most significant predictors were `RushYds`, `RushTD`, and `FL`. One example of a predictor that was redundant was `FirstDRush`. This variable does not lead to fantasy points and relates closely with `RushYds`.
+  The rushing ability of a football team is a valuable component of a team that can sometimes go overlooked. When looking at a fantasy team, rushing points can make or break a season. The part of this project regarding rushing was one that certainly contributed to the validity of it. The first important part of rushing yard analysis was finding valuable predictors. The predictors that were expected to be of value were pulled and there were initially many. Before predictor significance was verified there were about 12 predictors. After verifying significance, and accounting for collinearity, the most significant predictors were `RushYds`, `RushTD`, and `FL`. One example of a predictor that was redundant was `FirstDRush`. This variable does not lead to fantasy points and relates closely with `RushYds`.
   
 ## Models
 
@@ -186,6 +186,15 @@ To predict `Rec`, a final random forest model was fit using `Tgt`, `FirstDRec`, 
 ```{r, echo=FALSE}
 readRDS('../Tables/rushResults.rds')
 ```
+
+## Multiple Linear Regression
+
+  Multiple Linear Regression was the perfect place to start for analysis of the rushing data. In order to complete the multiple linear regression model the data was split randomly into k-folds. Once again k = 10 in this context. A for loop was run with each response variable. In this case the response variables were `RushTD`, `RushYds`, and `FL`. Four models were run with every iteration (one for each of the four response variables) until no folds were left to be tested on. Each from each model an MSE was calculated and that value was used later for assessing models. For some variables with this model, the MSE values were undesirable and did not seem vary helpful. The MSE values for `RushTD` and `FL` ended up being solid and when compared to later models, the values were best. 
+  
+## Bagging
+
+  Bagging, or bootstrap aggregation was another successful model for the rushing statistics. This model was done as a tree-based model following boosting and allowed for the boosting result to be more interpretable and useful in the analysis. The result of bagging in the rushing analysis led to one of the best MSE values and for the variable `RushYds` the MSE value was better than all the other models previously used. The MSE value for `RushYds` was solid ended up being used for final testing. 
+  
   
 # Fumbles Analysis
 
@@ -215,15 +224,9 @@ readRDS('../Tables/MSE.rds')
 
 The rankings produced ultimately have enough basis in reality to be practically useful as a fantasy draft tool, but should they be?
 
-Problems with our solution:
-- Doesnt account for matchup strength (only one performance estimate per player)
-- Doesnt account for players with <17 games
-- Doesnt account for expectation of injury
-- Assumes continuous distribution for truly discrete variables (Rec, TD, FL, etc.)
+  Obviously the project presented here can not perfectly predict the fantasy season. While this project had solid models that accounted for a lot of details of the game of fantasy football, there are still some parts that should be perfected in the future given more time and resources. Some of the problems with the solution were that this project does not account for matchup strength. There is only one performance estimate per player and it would be helpful to see how difficult a players upcoming season will be along with their stats. Another problem with the solution was that this solution does not account for players with less than 17 games. Not including players with less than 17 games can be detrimental to the models because it does not allow for all potential performers to be accounted for. There could be some players that perform at a high level i.e. starting rookies or players that are returning after an injury and they are not presented as assets in the solution Another problem with the solution is that with the data used, it is difficult to account for expectation of injury properly. An important part of fantasy is having players that are reliable and healthy. When players get injured often or are playing though an injury that has potential to deteriorate; it is important to account for that and be ready to replace them with a backup if necessary. Another problem with this solution is that a continuous distribution for truly discrete variables is assumed. An example of this is how `Rec`, `TD`, `FL`, and other variables are assumed to be continuous when they are not. This can of course lead to some inaccuracies. 
+  
+  This solution is not without it's strengths and there are certainly some  advantages to it's implementation. One advantage of the solution is that predictions can be made in a rolling fashion. This means that the training data can be updated and the last 17 games for all players can be accounted for repeatedly. Another advantage of this solution is that it uses a wide variety of predictor variables. When creating models to solve a problem it is crucial to have a myriad of predictors that allow for a variety of variables to be accounted for. By including so many predictors, the project was able to reach the accuracy it did. A big strength of the project that gives this group pride is the interpretability of the project. When there the project was started the data was in a format that was not user friendly and was sometimes difficult to understand. This project took the abstract data and put it in a format that tells a story. It is accessible and easy to explain. The visualizations and tables are a fantastic aid in getting across the points of the project. Overall this project was fun and fulfilling to work on and is one that would even be fun to continue working on as the group's skillsets continue to develop.
 
-Advantages of our solution:
-- Predictions can be made in a rolling fashion (with updated training data, last 17 games update for all players)
-- Uses a wide variety of available predictors
-- Maintains decent interpretability
 
 # References
