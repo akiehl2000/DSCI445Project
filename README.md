@@ -1,5 +1,6 @@
 # Fantasy Football Rankings Projections Using Advanced Metrics
-Zach Brazil, Richard Charles, Adam Kiehl
+
+This is a final project for DSCI 445 (machine learning) by Zach Brazil, Richard Charles, and Adam Kiehl. The focus of the project was to use NFL data to inform fantasy football draft valuations. 
 
 ## Directories
 
